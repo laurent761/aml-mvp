@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 from typing import Any
 
@@ -18,6 +19,26 @@ def principal(request: Request, scope: str = "research") -> dict[str, Any]:
     if scope not in value["scopes"] and "operator" not in value["scopes"]:
         raise ResearchError(f"{scope} scope required", 403)
     return value
+
+
+def finite_json_number(value: str) -> float:
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("JSON numbers must be finite")
+    return number
+
+
+def validate_json_body(body: bytes | bytearray) -> None:
+    document = json.loads(body, parse_float=finite_json_number, parse_constant=finite_json_number)
+    pending = [(document, 0)]
+    while pending:
+        value, depth = pending.pop()
+        if isinstance(value, (dict, list)):
+            # Leave room for the API's record wrappers in downstream serializers.
+            if depth >= 128:
+                raise ValueError("JSON nesting limit exceeded")
+            children = value.values() if isinstance(value, dict) else value
+            pending.extend((child, depth + 1) for child in children)
 
 
 class ResearchAuthMiddleware:
@@ -76,9 +97,9 @@ class ResearchAuthMiddleware:
                     break
             if body:
                 try:
-                    json.loads(body, parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
-                except (ValueError, UnicodeDecodeError):
-                    await JSONResponse({"detail": "valid finite JSON required"}, status_code=422)(scope, receive, send)
+                    validate_json_body(body)
+                except (ValueError, RecursionError):
+                    await JSONResponse({"detail": "valid finite JSON with at most 128 nesting levels required"}, status_code=422)(scope, receive, send)
                     return
             delivered = False
             async def replay() -> dict[str, Any]:

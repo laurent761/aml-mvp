@@ -197,6 +197,55 @@ async def test_authentication_ownership_and_limits(lab):
     assert response.status_code == 413
 
 
+@pytest.mark.parametrize("value", ["1e400", "-1e400", "NaN", "Infinity", "-Infinity",
+    pytest.param("[" * 2000 + "0" + "]" * 2000, id="excessive-nesting")])
+async def test_invalid_json_is_rejected_before_research_records_are_written(lab, value):
+    body = '{"name":"invalid","code_revision":"abc","configuration":{"nested":' + value + '}}'
+    async with httpx.AsyncClient(base_url="http://api",
+            transport=httpx.ASGITransport(app=lab["app"], raise_app_exceptions=False),
+            headers={"Authorization": "Bearer alice"}) as client:
+        response = await client.post("/v1/research-runs", content=body,
+            headers={"Content-Type": "application/json", "Idempotency-Key": "invalid-json"})
+    assert response.status_code == 422, response.text
+    with lab["repo"].db.session() as db:
+        assert db.scalar(select(ResearchRecord.id).where(ResearchRecord.kind == "run")) is None
+
+
+async def test_finite_nested_json_round_trips_in_research_configuration(lab):
+    configuration = {"nested": [{"large": 1e300, "small": -1e-300, "count": 7}]}
+    created = await post(lab["alice"], "/v1/research-runs",
+        {"name": "valid", "code_revision": "abc", "configuration": configuration})
+    result = await lab["alice"].get(f'/v1/research-runs/{created["id"]}')
+    assert result.json()["document"]["configuration"] == configuration
+
+
+@pytest.mark.parametrize("kind,path", [("checkpoint", "checkpoints"), ("runtime", "model-runtimes")])
+async def test_registry_limits_apply_after_ownership_filter(lab, kind, path):
+    now = datetime.now(UTC)
+    with lab["repo"].db.session() as db:
+        db.add_all([
+            ResearchRecord(id="alice-checkpoint", owner_id="alice", kind="checkpoint",
+                request_key="owned", content_hash="a" * 64, document={}),
+            ResearchRecord(id="bob-checkpoint", owner_id="bob", kind="checkpoint",
+                request_key="other", content_hash="b" * 64, document={}),
+        ] if kind == "runtime" else [])
+        db.add(ResearchRecord(id="owned-record", owner_id="alice" if kind == "checkpoint" else "operator",
+            kind=kind, request_key="owned-record", content_hash="a" * 64,
+            document={"checkpoint_id": "alice-checkpoint", "endpoint": "http://private",
+                "credential_ref": "PRIVATE_KEY"} if kind == "runtime" else {},
+            created_at=now - timedelta(days=1)))
+        db.add_all(ResearchRecord(id=f"other-{i}", owner_id="bob", kind=kind,
+            request_key=f"other-{i}", content_hash="b" * 64,
+            document={"checkpoint_id": "bob-checkpoint"} if kind == "runtime" else {},
+            created_at=now) for i in range(500))
+    response = await lab["alice"].get(f"/v1/{path}")
+    assert response.status_code == 200
+    rows = response.json()["items"]
+    assert [row["id"] for row in rows] == ["owned-record"]
+    assert "endpoint" not in rows[0]["document"]
+    assert "credential_ref" not in rows[0]["document"]
+
+
 async def test_reward_annotation_does_not_change_outcome_or_snapshot(lab):
     client = lab["alice"]
     run = await post(client, "/v1/research-runs", {"name": "research", "code_revision": "abc123"})
@@ -222,6 +271,31 @@ async def test_reward_annotation_does_not_change_outcome_or_snapshot(lab):
             assert b'"outcome"' not in first
         else:
             assert b'"terminal_success":true' in first
+
+
+async def test_training_snapshot_retry_recovers_frozen_selection_after_new_test_session(lab):
+    client = lab["alice"]
+    run = await post(client, "/v1/research-runs", {"name": "mixed-run", "code_revision": "abc"})
+    for split in ("train", "test"):
+        bundle = reference_bundle("sha256:" + "a" * 64)
+        bundle.scenario.scenario_id = "snapshot-" + split
+        bundle.scenario.split = split
+        registered = ScenarioCatalog(lab["repo"]).register(bundle)
+        created = await post(client, "/v1/research-sessions",
+            {"bundle_id": registered.bundle_id, "run_id": run["id"]}, split)
+        if split == "train":
+            request = {"run_ids": [run["id"]], "split": "train"}
+            original = await post(client, "/v1/dataset-snapshots", request, "frozen")
+            assert original["document"]["session_ids"] == [created["id"]]
+
+    replay = await post(client, "/v1/dataset-snapshots", request, "frozen")
+    assert replay == original
+    rejected = await client.post("/v1/dataset-snapshots", json=request,
+        headers={"Idempotency-Key": "new-selection"})
+    assert rejected.status_code == 422
+    changed = await client.post("/v1/dataset-snapshots", json={**request, "format": "parquet"},
+        headers={"Idempotency-Key": "frozen"})
+    assert changed.status_code == 409
 
 
 async def checkpoint(lab, *, key="checkpoint"):

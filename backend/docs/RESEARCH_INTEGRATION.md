@@ -195,6 +195,9 @@ conservative cost reservation; administrators must reconcile those before granti
 more budget. Rates of zero are labelled unpriced. External GPU usage is labelled
 reported; the platform cannot stop externally launched training. Request rate limits
 are per API process; a shared ingress limiter is needed for a deployment-wide rate.
+JSON requests require finite numbers and at most 128 nested object/array levels;
+invalid input returns HTTP 422 before record creation. Binary upload streams are
+validated separately against their declared size and checksum.
 
 `GET /v1/research-health` reports API, database, supervisor, artifact store and queue
 capacity separately. Target readiness is tracked per live session; model health is

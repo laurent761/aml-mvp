@@ -171,13 +171,6 @@ def install_transfer_routes(app: FastAPI, service: ResearchService) -> None:
             lock_owner(db, owner)
             for run_id in body.run_ids:
                 owned_record(db, owner, run_id, "run")
-            sessions = list(db.scalars(select(ResearchSession).where(ResearchSession.owner_id == owner,
-                ResearchSession.run_id.in_(body.run_ids))))
-            if body.split == "train" and any(row.document["split"] == "test" for row in sessions):
-                raise ResearchError("train export rejected: selected runs contain test episodes", 422)
-            selected = [row for row in sessions if row.document["split"] == body.split and
-                        (not body.families or row.document["family"] in body.families)]
-            document = {**body.model_dump(mode="json"), "session_ids": [r.id for r in selected]}
             key = request_key(idempotency_key)
             prior = db.scalar(select(ResearchRecord).where(ResearchRecord.owner_id == owner,
                 ResearchRecord.kind == "dataset", ResearchRecord.request_key == key))
@@ -186,6 +179,13 @@ def install_transfer_routes(app: FastAPI, service: ResearchService) -> None:
                 if any(prior.document.get(k) != v for k, v in body.model_dump(mode="json").items()):
                     raise ResearchError("dataset idempotency key conflict")
                 return record_view(prior)
+            sessions = list(db.scalars(select(ResearchSession).where(ResearchSession.owner_id == owner,
+                ResearchSession.run_id.in_(body.run_ids))))
+            if body.split == "train" and any(row.document["split"] == "test" for row in sessions):
+                raise ResearchError("train export rejected: selected runs contain test episodes", 422)
+            selected = [row for row in sessions if row.document["split"] == body.split and
+                        (not body.families or row.document["family"] in body.families)]
+            document = {**body.model_dump(mode="json"), "session_ids": [r.id for r in selected]}
             row = service.put_record(db, owner, "dataset", key,
                 {**document, "cutoff": datetime.now(UTC).isoformat(), "schema_version": "aml.dataset.v1"})
             db.add(WorkLease(id=new_id("job"), job_type="research_dataset", payload={"dataset_id": row.id}))

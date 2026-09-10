@@ -339,11 +339,14 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
     def registry_list(kind: str, request: Request) -> dict[str, Any]:
         identity = principal(request, "evaluation" if kind == "suite" else "research")
         with repository.db.session() as db:
-            rows = list(db.scalars(select(ResearchRecord).where(ResearchRecord.kind == kind).order_by(ResearchRecord.created_at.desc()).limit(500)))
+            query = select(ResearchRecord).where(ResearchRecord.kind == kind)
             if kind == "checkpoint":
-                rows = [r for r in rows if r.owner_id == identity["owner_id"]]
+                query = query.where(ResearchRecord.owner_id == identity["owner_id"])
             elif kind == "runtime" and "operator" not in identity["scopes"]:
-                rows = [r for r in rows if (cp := db.get(ResearchRecord, r.document["checkpoint_id"])) and cp.owner_id == identity["owner_id"]]
+                checkpoints = select(ResearchRecord.id).where(
+                    ResearchRecord.kind == "checkpoint", ResearchRecord.owner_id == identity["owner_id"])
+                query = query.where(ResearchRecord.document["checkpoint_id"].as_string().in_(checkpoints))
+            rows = list(db.scalars(query.order_by(ResearchRecord.created_at.desc()).limit(500)))
             values = [record_view(row) for row in rows]
             if kind == "runtime":
                 checks = list(db.scalars(select(ResearchRecord).where(ResearchRecord.kind == "runtime_health")

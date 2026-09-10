@@ -52,16 +52,19 @@ class Client:
     async def request(self, method: str, path: str, body: Any = None, *, key: str | None = None) -> Any:
         # Retries preserve the original key and JSON bytes. No POST is retried without a key.
         headers = {"Idempotency-Key": key} if key else {}
+        method = method.upper()
+        request = self.http.build_request(method, path, json=body, headers=headers)
         attempts = self.retries + 1 if method == "GET" or key else 1
         for attempt in range(attempts):
             try:
-                response = await self.http.request(method, path, json=body, headers=headers)
+                response = await self.http.send(request)
                 if response.status_code in {429, 502, 503, 504} and attempt + 1 < attempts:
                     await asyncio.sleep(min(2.0, 0.25 * 2 ** attempt))
                     continue
                 if response.is_error:
                     try:
-                        detail = response.json().get("detail")
+                        error_body = response.json()
+                        detail = error_body.get("detail", error_body) if isinstance(error_body, dict) else error_body
                     except ValueError:
                         detail = "non-JSON error response"
                     raise ResearchAPIError(response.status_code, detail)
@@ -189,6 +192,8 @@ class EpisodeSession:
         self.last_operation_id: str | None = None
         self._heartbeat: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
+        # Serialize snapshots without blocking heartbeats on long-running commands.
+        self._status_lock = asyncio.Lock()
 
     @property
     def id(self) -> str:
@@ -214,12 +219,14 @@ class EpisodeSession:
             await asyncio.shield(self.close())
 
     async def status(self) -> SessionInfo:
-        self.info = SessionInfo.model_validate(await self.client.request("GET", f"/v1/research-sessions/{self.id}"))
-        return self.info
+        async with self._status_lock:
+            self.info = SessionInfo.model_validate(await self.client.request("GET", f"/v1/research-sessions/{self.id}"))
+            return self.info
 
     async def heartbeat(self) -> SessionInfo:
-        self.info = SessionInfo.model_validate(await self.client.request("POST", f"/v1/research-sessions/{self.id}/heartbeat", {}))
-        return self.info
+        async with self._status_lock:
+            self.info = SessionInfo.model_validate(await self.client.request("POST", f"/v1/research-sessions/{self.id}/heartbeat", {}))
+            return self.info
 
     async def command(self, kind: str, payload: Any, key: str | None) -> Operation:
         data = await self.client.request("POST", f"/v1/research-sessions/{self.id}/{kind}", payload, key=key or uuid.uuid4().hex)
