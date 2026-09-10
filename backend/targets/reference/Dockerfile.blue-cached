@@ -1,0 +1,6 @@
+# Reuse installed dependencies while running the current Blue source offline.
+ARG CACHED_RUNTIME_IMAGE
+FROM ${CACHED_RUNTIME_IMAGE}
+COPY src/adversarial_agent_mvp /app/src/adversarial_agent_mvp
+COPY src/aml_target_protocol /app/src/aml_target_protocol
+ENV PYTHONPATH=/app/src

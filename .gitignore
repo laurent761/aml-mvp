@@ -1,0 +1,36 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# Dependencies and Python caches
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+
+# Build output and local runtime data
+dist/
+.next/
+.wrangler/
+.sites-runtime/
+outputs/
+work/
+*.tsbuildinfo
+/backend/var/
+
+# Machine files and logs
+.DS_Store
+*.log

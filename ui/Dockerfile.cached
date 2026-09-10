@@ -1,0 +1,11 @@
+# Dependency cache must have the exact package-lock.json checksum of this checkout.
+ARG CACHED_BUILD_IMAGE=adversarial-ui-build-check:latest
+FROM ${CACHED_BUILD_IMAGE}
+WORKDIR /app
+COPY . .
+ARG BACKEND_API_URL=http://api:8000
+ENV BACKEND_API_URL=${BACKEND_API_URL}
+RUN npm run build
+ENV NODE_ENV=production PORT=3000
+USER node
+CMD ["npm", "run", "start"]

@@ -1,0 +1,19 @@
+# Offline development fallback. Supply a locally cached backend runtime built
+# from this lockfile. The final image contains no control-plane Python package.
+ARG CACHED_RUNTIME_IMAGE
+FROM ${CACHED_RUNTIME_IMAGE} AS dependencies
+USER root
+RUN python -c 'import pathlib,shutil; root=pathlib.Path("/app/.venv/lib/python3.12/site-packages"); [shutil.rmtree(p) for p in root.glob("adversarial*") if p.is_dir()]'
+
+FROM scratch
+COPY --from=dependencies /usr /usr
+COPY --from=dependencies /lib /lib
+COPY --from=dependencies /etc /etc
+COPY --from=dependencies /app/.venv /app/.venv
+COPY src/aml_reference_target /app/src/aml_reference_target
+COPY src/aml_target_protocol /app/src/aml_target_protocol
+WORKDIR /app
+ENV PATH=/app/.venv/bin:/usr/local/bin:/usr/bin:/bin PYTHONPATH=/app/src PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+USER 10001:10001
+ENTRYPOINT ["python", "-m", "aml_reference_target"]
+CMD ["--mode", "fixture"]

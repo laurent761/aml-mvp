@@ -1,0 +1,17 @@
+# Offline validation fallback. Both cached images must match uv.lock.
+ARG CACHED_RUNTIME_IMAGE=adversarial-capsule-supervisor:local
+ARG CACHED_ARROW_IMAGE=adversarial-mlflow:local
+FROM ${CACHED_ARROW_IMAGE} AS arrow
+FROM ${CACHED_RUNTIME_IMAGE}
+USER root
+COPY --from=arrow /app/.venv/lib/python3.12/site-packages/pyarrow /app/.venv/lib/python3.12/site-packages/pyarrow
+COPY --from=arrow /app/.venv/lib/python3.12/site-packages/pyarrow-20.0.0.dist-info /app/.venv/lib/python3.12/site-packages/pyarrow-20.0.0.dist-info
+RUN python -c 'import pyarrow; assert pyarrow.__version__ == "20.0.0"' \
+    && mkdir -p /app/var/artifacts /app/var/uploads \
+    && chown -R app:app /app/var
+COPY src /app/src
+COPY migrations /app/migrations
+COPY alembic.ini pyproject.toml uv.lock README.md /app/
+ENV PYTHONPATH=/app/src
+USER app
+CMD ["adversarial-api"]

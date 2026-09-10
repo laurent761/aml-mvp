@@ -1,0 +1,51 @@
+{
+  "schema_version": "2.0",
+  "date": "2026-09-01",
+  "package_version": "0.1.0",
+  "python_version": "3.12.13",
+  "node_version_requirement": ">=22.13.0",
+  "status": "passed_with_deferred_external_gates",
+  "backend": {
+    "tests_passed": 170,
+    "tests_skipped": 2,
+    "tests_failed": 0,
+    "coverage_percent": 82.32,
+    "coverage_gate_percent": 75,
+    "ruff": "passed",
+    "pyright": "passed",
+    "compileall": "passed",
+    "uv_lock_check": "passed",
+    "acceptance_harness": "passed_with_deferred_gates",
+    "alembic_revisions_applied": ["0001", "0002", "0003"],
+    "alembic_drift_check": "passed",
+    "schema_table_count": 22,
+    "expected_tables_missing": [],
+    "wheel_build": "passed",
+    "sdist_build": "passed",
+    "fresh_wheel_install": "passed",
+    "installed_api_smoke": "passed",
+    "openapi_path_count": 36
+  },
+  "ui": {
+    "tests_passed": 13,
+    "tests_failed": 0,
+    "lint": "passed",
+    "production_build": "passed",
+    "visual_quality_detector_findings": 0,
+    "browser_workspaces_verified": 8,
+    "browser_application_errors": 0,
+    "production_same_origin_proxy_smoke": "passed",
+    "exact_requested_palette": "verified"
+  },
+  "scope": {
+    "testing_agents_present": false,
+    "benchmark_targets_present": false,
+    "operator_ui_present": true
+  },
+  "deferred": [
+    {"gate": "live_docker_capsule", "reason": "Docker CLI is not installed"},
+    {"gate": "live_firecracker", "reason": "No separately audited runner was supplied"},
+    {"gate": "live_postgresql", "reason": "MVP_TEST_POSTGRES_URL was not supplied"},
+    {"gate": "held_out_red_benchmark", "reason": "Testing and benchmark target agents were explicitly excluded"}
+  ]
+}

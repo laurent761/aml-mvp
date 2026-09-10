@@ -1,0 +1,418 @@
+{
+  "version": 1,
+  "project": {
+    "name": "site-creator-vinext-starter",
+    "productType": null,
+    "stack": [
+      "nextjs",
+      "react",
+      "shadcn",
+      "tailwind-v4",
+      "vite"
+    ]
+  },
+  "sources": {
+    "tokens": [
+      "app/globals.css"
+    ],
+    "components": [
+      "components/ui"
+    ],
+    "assets": [],
+    "instructions": [
+      "PRODUCT.md"
+    ]
+  },
+  "design": {
+    "colorMode": "light",
+    "colors": {
+      "--muted-ink": {
+        "value": "#646467",
+        "source": "app/globals.css"
+      },
+      "--background": {
+        "value": "var(--silver-white)",
+        "source": "app/globals.css"
+      },
+      "--foreground": {
+        "value": "var(--ink)",
+        "source": "app/globals.css"
+      },
+      "--card-foreground": {
+        "value": "var(--ink)",
+        "source": "app/globals.css"
+      },
+      "--popover-foreground": {
+        "value": "var(--ink)",
+        "source": "app/globals.css"
+      },
+      "--primary": {
+        "value": "var(--button)",
+        "source": "app/globals.css"
+      },
+      "--primary-foreground": {
+        "value": "#ffffff",
+        "source": "app/globals.css"
+      },
+      "--secondary": {
+        "value": "var(--panel-soft)",
+        "source": "app/globals.css"
+      },
+      "--secondary-foreground": {
+        "value": "var(--ink)",
+        "source": "app/globals.css"
+      },
+      "--muted": {
+        "value": "var(--hover)",
+        "source": "app/globals.css"
+      },
+      "--muted-foreground": {
+        "value": "var(--muted-ink)",
+        "source": "app/globals.css"
+      },
+      "--accent": {
+        "value": "var(--hover)",
+        "source": "app/globals.css"
+      },
+      "--accent-foreground": {
+        "value": "var(--ink)",
+        "source": "app/globals.css"
+      },
+      "--destructive": {
+        "value": "oklch(0.48 0.17 28)",
+        "source": "app/globals.css"
+      },
+      "--border": {
+        "value": "var(--hairline)",
+        "source": "app/globals.css"
+      },
+      "--ring": {
+        "value": "var(--focus-blue)",
+        "source": "app/globals.css"
+      },
+      "--chart-1": {
+        "value": "oklch(0.5 0.1 235)",
+        "source": "app/globals.css"
+      },
+      "--chart-2": {
+        "value": "oklch(0.51 0.04 265)",
+        "source": "app/globals.css"
+      },
+      "--chart-3": {
+        "value": "oklch(0.59 0.13 75)",
+        "source": "app/globals.css"
+      },
+      "--chart-4": {
+        "value": "oklch(0.47 0.13 20)",
+        "source": "app/globals.css"
+      },
+      "--chart-5": {
+        "value": "oklch(0.56 0.08 300)",
+        "source": "app/globals.css"
+      },
+      "--sidebar-foreground": {
+        "value": "#f8f8f6",
+        "source": "app/globals.css"
+      },
+      "--sidebar-primary": {
+        "value": "#ffffff",
+        "source": "app/globals.css"
+      },
+      "--sidebar-primary-foreground": {
+        "value": "var(--obsidian)",
+        "source": "app/globals.css"
+      },
+      "--sidebar-accent": {
+        "value": "#252527",
+        "source": "app/globals.css"
+      },
+      "--sidebar-accent-foreground": {
+        "value": "#ffffff",
+        "source": "app/globals.css"
+      },
+      "--sidebar-border": {
+        "value": "#303033",
+        "source": "app/globals.css"
+      },
+      "--sidebar-ring": {
+        "value": "#8db6cb",
+        "source": "app/globals.css"
+      },
+      "--color-background": {
+        "value": "var(--background)",
+        "source": "app/globals.css"
+      },
+      "--color-foreground": {
+        "value": "var(--foreground)",
+        "source": "app/globals.css"
+      },
+      "--color-card": {
+        "value": "var(--card)",
+        "source": "app/globals.css"
+      },
+      "--color-card-foreground": {
+        "value": "var(--card-foreground)",
+        "source": "app/globals.css"
+      },
+      "--color-popover": {
+        "value": "var(--popover)",
+        "source": "app/globals.css"
+      },
+      "--color-popover-foreground": {
+        "value": "var(--popover-foreground)",
+        "source": "app/globals.css"
+      },
+      "--color-primary": {
+        "value": "var(--primary)",
+        "source": "app/globals.css"
+      },
+      "--color-primary-foreground": {
+        "value": "var(--primary-foreground)",
+        "source": "app/globals.css"
+      },
+      "--color-secondary": {
+        "value": "var(--secondary)",
+        "source": "app/globals.css"
+      },
+      "--color-secondary-foreground": {
+        "value": "var(--secondary-foreground)",
+        "source": "app/globals.css"
+      },
+      "--color-muted": {
+        "value": "var(--muted)",
+        "source": "app/globals.css"
+      },
+      "--color-muted-foreground": {
+        "value": "var(--muted-foreground)",
+        "source": "app/globals.css"
+      },
+      "--color-accent": {
+        "value": "var(--accent)",
+        "source": "app/globals.css"
+      },
+      "--color-accent-foreground": {
+        "value": "var(--accent-foreground)",
+        "source": "app/globals.css"
+      },
+      "--color-destructive": {
+        "value": "var(--destructive)",
+        "source": "app/globals.css"
+      },
+      "--color-border": {
+        "value": "var(--border)",
+        "source": "app/globals.css"
+      },
+      "--color-input": {
+        "value": "var(--input)",
+        "source": "app/globals.css"
+      },
+      "--color-ring": {
+        "value": "var(--ring)",
+        "source": "app/globals.css"
+      },
+      "--color-chart-1": {
+        "value": "var(--chart-1)",
+        "source": "app/globals.css"
+      },
+      "--color-chart-2": {
+        "value": "var(--chart-2)",
+        "source": "app/globals.css"
+      },
+      "--color-chart-3": {
+        "value": "var(--chart-3)",
+        "source": "app/globals.css"
+      },
+      "--color-chart-4": {
+        "value": "var(--chart-4)",
+        "source": "app/globals.css"
+      },
+      "--color-chart-5": {
+        "value": "var(--chart-5)",
+        "source": "app/globals.css"
+      },
+      "--color-sidebar": {
+        "value": "var(--sidebar)",
+        "source": "app/globals.css"
+      },
+      "--color-sidebar-foreground": {
+        "value": "var(--sidebar-foreground)",
+        "source": "app/globals.css"
+      },
+      "--color-sidebar-primary": {
+        "value": "var(--sidebar-primary)",
+        "source": "app/globals.css"
+      },
+      "--color-sidebar-primary-foreground": {
+        "value": "var(--sidebar-primary-foreground)",
+        "source": "app/globals.css"
+      },
+      "--color-sidebar-accent": {
+        "value": "var(--sidebar-accent)",
+        "source": "app/globals.css"
+      },
+      "--color-sidebar-accent-foreground": {
+        "value": "var(--sidebar-accent-foreground)",
+        "source": "app/globals.css"
+      },
+      "--color-sidebar-border": {
+        "value": "var(--sidebar-border)",
+        "source": "app/globals.css"
+      },
+      "--color-sidebar-ring": {
+        "value": "var(--sidebar-ring)",
+        "source": "app/globals.css"
+      }
+    },
+    "typography": {
+      "--font-sans": {
+        "value": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "source": "app/globals.css"
+      },
+      "--font-mono": {
+        "value": "\"SFMono-Regular\", Consolas, \"Liberation Mono\", monospace",
+        "source": "app/globals.css"
+      }
+    },
+    "spacing": {},
+    "radius": {
+      "--radius": {
+        "value": "0.625rem",
+        "source": "app/globals.css"
+      },
+      "--radius-sm": {
+        "value": "calc(var(--radius) - 4px)",
+        "source": "app/globals.css"
+      },
+      "--radius-md": {
+        "value": "calc(var(--radius) - 2px)",
+        "source": "app/globals.css"
+      },
+      "--radius-lg": {
+        "value": "var(--radius)",
+        "source": "app/globals.css"
+      },
+      "--radius-xl": {
+        "value": "calc(var(--radius) + 4px)",
+        "source": "app/globals.css"
+      }
+    },
+    "shadows": {},
+    "motion": {},
+    "density": "unknown"
+  },
+  "components": {
+    "installed": [
+      "accordion",
+      "alert",
+      "alert-dialog",
+      "aspect-ratio",
+      "attachment",
+      "avatar",
+      "badge",
+      "breadcrumb",
+      "bubble",
+      "button",
+      "button-group",
+      "calendar",
+      "card",
+      "carousel",
+      "chart",
+      "checkbox",
+      "collapsible",
+      "combobox",
+      "command",
+      "context-menu",
+      "dialog",
+      "direction",
+      "drawer",
+      "dropdown-menu",
+      "empty",
+      "field",
+      "form",
+      "hover-card",
+      "input",
+      "input-group",
+      "input-otp",
+      "item",
+      "kbd",
+      "label",
+      "marker",
+      "menubar",
+      "message",
+      "message-scroller",
+      "native-select",
+      "navigation-menu",
+      "pagination",
+      "popover",
+      "progress",
+      "radio-group",
+      "resizable",
+      "scroll-area",
+      "select",
+      "separator",
+      "sheet",
+      "sidebar",
+      "skeleton",
+      "slider",
+      "sonner",
+      "spinner",
+      "switch",
+      "table",
+      "tabs",
+      "textarea",
+      "toggle",
+      "toggle-group",
+      "tooltip"
+    ],
+    "preferredPrimitives": [],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [],
+    "avoid": []
+  },
+  "decisions": [
+    "Use slate, cool gray, and blue; no green colors.",
+    "Prefer icons, visual workflows, and real-data charts to explanatory text blocks. Keep essential labels and evidence semantics.",
+    "Keep one compact component scale: consistent white panels, aligned headers, inline icons, and restrained data graphics. Avoid large icon tiles and competing card treatments."
+  ],
+  "evidence": [
+    {
+      "fact": "components.installed",
+      "source": "components/ui"
+    },
+    {
+      "fact": "design.colorMode:light",
+      "source": "app/globals.css"
+    },
+    {
+      "fact": "design.tokens",
+      "source": "app/globals.css"
+    },
+    {
+      "fact": "project.instructions",
+      "source": "PRODUCT.md"
+    },
+    {
+      "fact": "project.stack:nextjs",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:react",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:shadcn",
+      "source": "components.json"
+    },
+    {
+      "fact": "project.stack:tailwind-v4",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:vite",
+      "source": "package.json"
+    }
+  ],
+  "generatedAt": "2026-09-08T13:21:21.120Z"
+}

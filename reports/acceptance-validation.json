@@ -1,0 +1,178 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-09-01T22:39:01.089848+00:00",
+  "overall_status": "passed_with_deferred_gates",
+  "required_failures": [],
+  "optional_failures": [],
+  "results": [
+    {
+      "name": "source_and_test_compilation",
+      "status": "passed",
+      "required": true,
+      "command": [
+        "/workspace/scratch/2d6a557c8d38/backend/.venv/bin/python3",
+        "-m",
+        "compileall",
+        "-q",
+        "src",
+        "tests",
+        "scripts"
+      ],
+      "reason": null,
+      "returncode": 0
+    },
+    {
+      "name": "ruff",
+      "status": "passed",
+      "required": true,
+      "command": [
+        "/workspace/scratch/2d6a557c8d38/backend/.venv/bin/ruff",
+        "check",
+        "."
+      ],
+      "reason": null,
+      "returncode": 0
+    },
+    {
+      "name": "pyright",
+      "status": "passed",
+      "required": true,
+      "command": [
+        "/workspace/scratch/2d6a557c8d38/backend/.venv/bin/pyright",
+        "--project",
+        "pyproject.toml"
+      ],
+      "reason": null,
+      "returncode": 0
+    },
+    {
+      "name": "postgresql_driver_import",
+      "status": "passed",
+      "required": true,
+      "command": [
+        "/workspace/scratch/2d6a557c8d38/backend/.venv/bin/python3",
+        "-c",
+        "import psycopg"
+      ],
+      "reason": null,
+      "returncode": 0
+    },
+    {
+      "name": "full_pytest_with_coverage",
+      "status": "passed",
+      "required": true,
+      "command": [
+        "/workspace/scratch/2d6a557c8d38/backend/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-rxX"
+      ],
+      "reason": null,
+      "returncode": 0
+    },
+    {
+      "name": "pytest_marker_containment",
+      "status": "passed",
+      "required": true,
+      "command": [
+        "/workspace/scratch/2d6a557c8d38/backend/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "--no-cov",
+        "-q",
+        "-rxX",
+        "-m",
+        "containment"
+      ],
+      "reason": null,
+      "returncode": 0
+    },
+    {
+      "name": "pytest_marker_integration",
+      "status": "passed",
+      "required": true,
+      "command": [
+        "/workspace/scratch/2d6a557c8d38/backend/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "--no-cov",
+        "-q",
+        "-rxX",
+        "-m",
+        "integration"
+      ],
+      "reason": null,
+      "returncode": 0
+    },
+    {
+      "name": "pytest_marker_e2e",
+      "status": "passed",
+      "required": true,
+      "command": [
+        "/workspace/scratch/2d6a557c8d38/backend/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "--no-cov",
+        "-q",
+        "-rxX",
+        "-m",
+        "e2e"
+      ],
+      "reason": null,
+      "returncode": 0
+    },
+    {
+      "name": "worker_lease_heartbeat",
+      "status": "passed",
+      "required": true,
+      "command": [
+        "/workspace/scratch/2d6a557c8d38/backend/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "--no-cov",
+        "-q",
+        "tests/acceptance/test_runtime_semantics.py::test_worker_renews_lease_during_long_campaign"
+      ],
+      "reason": null,
+      "returncode": 0
+    },
+    {
+      "name": "clean_alembic_migration_smoke",
+      "status": "passed",
+      "required": true,
+      "command": [
+        "/workspace/scratch/2d6a557c8d38/backend/.venv/bin/python3",
+        "-m",
+        "alembic",
+        "upgrade",
+        "head"
+      ],
+      "reason": null,
+      "returncode": 0
+    },
+    {
+      "name": "live_docker_capsule",
+      "status": "deferred",
+      "required": false,
+      "command": null,
+      "reason": "Docker CLI is not installed",
+      "returncode": null
+    },
+    {
+      "name": "live_postgresql",
+      "status": "deferred",
+      "required": false,
+      "command": null,
+      "reason": "MVP_TEST_POSTGRES_URL is not supplied for a disposable PostgreSQL database",
+      "returncode": null
+    },
+    {
+      "name": "external_target_benchmark",
+      "status": "deferred",
+      "required": false,
+      "command": null,
+      "reason": "Benchmark/testing agents were explicitly excluded; held-out ASR and Red promotion cannot be evaluated without external target variants",
+      "returncode": null
+    }
+  ]
+}

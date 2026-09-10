@@ -1,0 +1,370 @@
+x-common-environment: &common-environment
+  DEPLOYMENT_ENVIRONMENT: ${DEPLOYMENT_ENVIRONMENT:-development}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  OTEL_ENABLED: ${OTEL_ENABLED:-true}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_EXPORT_INTERVAL_SECONDS: ${OTEL_EXPORT_INTERVAL_SECONDS:-15}
+
+x-persistence-environment: &persistence-environment
+  <<: *common-environment
+  DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env}
+  ARTIFACT_BACKEND: ${ARTIFACT_BACKEND:-s3}
+  ARTIFACT_ROOT: /app/var/artifacts
+  RESEARCH_UPLOAD_ROOT: /app/var/uploads
+  RESEARCH_MAX_SESSIONS_PER_OWNER: ${RESEARCH_MAX_SESSIONS_PER_OWNER:-4}
+  RESEARCH_OWNER_COST_LIMIT: ${RESEARCH_OWNER_COST_LIMIT:-100}
+  RESEARCH_OWNER_STORAGE_BYTES: ${RESEARCH_OWNER_STORAGE_BYTES:-107374182400}
+  RESEARCH_UPLOAD_EXPIRY_SECONDS: ${RESEARCH_UPLOAD_EXPIRY_SECONDS:-86400}
+  S3_BUCKET: ${S3_BUCKET:-adversarial-evidence}
+  S3_ENDPOINT_URL: http://minio:9000
+  S3_REGION: ${S3_REGION:-us-east-1}
+  AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+  AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+  AWS_DEFAULT_REGION: ${S3_REGION:-us-east-1}
+  MLFLOW_TRACKING_URI: http://mlflow:5000
+  MLFLOW_EXPERIMENT_NAME: ${MLFLOW_EXPERIMENT_NAME:-adversarial-agent-mvp}
+
+x-app-security: &app-security
+  init: true
+  restart: unless-stopped
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:size=64m,noexec,nosuid,nodev
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-adversarial}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-adversarial}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - data
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${MINIO_API_PORT:-9000}:9000"
+      - "${BIND_ADDRESS:-127.0.0.1}:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - data
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      S3_BUCKET: ${S3_BUCKET:-adversarial-evidence}
+      MLFLOW_ARTIFACT_BUCKET: ${MLFLOW_ARTIFACT_BUCKET:-mlflow-artifacts}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing "local/$${S3_BUCKET}"
+        mc mb --ignore-existing "local/$${MLFLOW_ARTIFACT_BUCKET}"
+    networks:
+      - data
+
+  mlflow:
+    build:
+      context: .
+      target: mlflow
+    image: adversarial-mlflow:local
+    restart: unless-stopped
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - sqlite:////mlflow/mlflow.db
+      - --serve-artifacts
+      - --artifacts-destination
+      - s3://${MLFLOW_ARTIFACT_BUCKET:-mlflow-artifacts}
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      AWS_DEFAULT_REGION: ${S3_REGION:-us-east-1}
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=2)
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${MLFLOW_PORT:-5000}:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    networks:
+      - data
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.135.0
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${OTEL_GRPC_PORT:-4317}:4317"
+      - "${BIND_ADDRESS:-127.0.0.1}:${OTEL_HTTP_PORT:-4318}:4318"
+    networks:
+      - control
+
+  migration:
+    build:
+      context: .
+      target: api
+    image: adversarial-api:local
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env}
+      OTEL_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data
+
+  blue-gateway:
+    <<: *app-security
+    build:
+      context: .
+      target: blue-gateway
+    image: ${BLUE_GATEWAY_IMAGE:-blue-gateway:local}
+    environment:
+      <<: *common-environment
+      SERVICE_ROLE: blue-gateway
+      SERVICE_NAME: blue-gateway-template
+      CAPABILITY_SIGNING_KEY: ${CAPABILITY_SIGNING_KEY:?set CAPABILITY_SIGNING_KEY in .env}
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz', timeout=2)
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      - control
+
+  capsule-supervisor:
+    <<: *app-security
+    build:
+      context: .
+      target: capsule-supervisor
+    image: adversarial-capsule-supervisor:local
+    environment:
+      <<: *common-environment
+      SERVICE_ROLE: capsule-supervisor
+      SERVICE_NAME: capsule-supervisor
+      CAPSULE_RUNTIME: ${CAPSULE_RUNTIME:-docker}
+      CAPSULE_SUPERVISOR_TOKEN: ${CAPSULE_SUPERVISOR_TOKEN:?set CAPSULE_SUPERVISOR_TOKEN in .env}
+      CAPSULE_SUPERVISOR_HOST: 0.0.0.0
+      CAPSULE_SUPERVISOR_PORT: 8090
+      MAX_CAPSULE_CONCURRENCY: ${MAX_CAPSULE_CONCURRENCY:-4}
+      CAPABILITY_SIGNING_KEY: ${CAPABILITY_SIGNING_KEY:?set CAPABILITY_SIGNING_KEY in .env}
+      BLUE_GATEWAY_IMAGE: ${BLUE_GATEWAY_IMAGE:-blue-gateway:local}
+      FIRECRACKER_RUNNER_URL: ${FIRECRACKER_RUNNER_URL:-}
+      FIRECRACKER_RUNNER_TOKEN: ${FIRECRACKER_RUNNER_TOKEN:-}
+      TARGET_MODEL_PROVIDER: ${TARGET_MODEL_PROVIDER:-disabled}
+      TARGET_MODEL_BASE_URL: ${TARGET_MODEL_BASE_URL:-}
+      TARGET_MODEL_NAME: ${TARGET_MODEL_NAME:-}
+      TARGET_MODEL_API_KEY: ${TARGET_MODEL_API_KEY:-}
+      TARGET_MODEL_REVISION: ${TARGET_MODEL_REVISION:-}
+      TARGET_MODEL_TEMPERATURE: ${TARGET_MODEL_TEMPERATURE:-0}
+      TARGET_MODEL_TOP_P: ${TARGET_MODEL_TOP_P:-1}
+      TARGET_MODEL_MAX_OUTPUT_TOKENS: ${TARGET_MODEL_MAX_OUTPUT_TOKENS:-1000}
+      TARGET_MODEL_TOKEN_PARAMETER: ${TARGET_MODEL_TOKEN_PARAMETER:-max_tokens}
+      TARGET_MODEL_JSON_MODE: ${TARGET_MODEL_JSON_MODE:-true}
+      TARGET_MODEL_TIMEOUT_SECONDS: ${TARGET_MODEL_TIMEOUT_SECONDS:-30}
+      TARGET_MODEL_MAX_INPUT_BYTES: ${TARGET_MODEL_MAX_INPUT_BYTES:-65536}
+      TARGET_MODEL_MAX_RESPONSE_BYTES: ${TARGET_MODEL_MAX_RESPONSE_BYTES:-262144}
+      TARGET_MODEL_MAX_REQUESTS: ${TARGET_MODEL_MAX_REQUESTS:-100}
+      TARGET_MODEL_MAX_TOTAL_TOKENS: ${TARGET_MODEL_MAX_TOTAL_TOKENS:-200000}
+      TARGET_MODEL_MAX_COST: ${TARGET_MODEL_MAX_COST:-10}
+      TARGET_MODEL_INPUT_COST_PER_MILLION: ${TARGET_MODEL_INPUT_COST_PER_MILLION:-0}
+      TARGET_MODEL_OUTPUT_COST_PER_MILLION: ${TARGET_MODEL_OUTPUT_COST_PER_MILLION:-0}
+      TARGET_MODEL_MAX_CONCURRENCY: ${TARGET_MODEL_MAX_CONCURRENCY:-4}
+    depends_on:
+      blue-gateway:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    volumes:
+      - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+    group_add:
+      - ${DOCKER_GID:-0}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8090/healthz', timeout=2)
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      - control
+
+  api:
+    <<: *app-security
+    build:
+      context: .
+      target: api
+    image: adversarial-api:local
+    environment:
+      <<: *persistence-environment
+      SERVICE_ROLE: api
+      SERVICE_NAME: control-api
+      RESEARCH_AUTH_REQUIRED: ${RESEARCH_AUTH_REQUIRED:-false}
+      RESEARCH_AUTH_TOKENS: ${RESEARCH_AUTH_TOKENS:-{}}
+      RESEARCH_MAX_REQUEST_BYTES: ${RESEARCH_MAX_REQUEST_BYTES:-1048576}
+      RESEARCH_REQUESTS_PER_MINUTE: ${RESEARCH_REQUESTS_PER_MINUTE:-600}
+      CAPSULE_SUPERVISOR_URL: http://capsule-supervisor:8090
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+      mlflow:
+        condition: service_healthy
+      capsule-supervisor:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=2)
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8000}:8000"
+    volumes:
+      - local-artifacts:/app/var/artifacts
+      - research-uploads:/app/var/uploads
+    networks:
+      - control
+      - data
+
+  ui:
+    <<: *app-security
+    build:
+      context: ${UI_BUILD_CONTEXT:-../ui}
+      args:
+        BACKEND_API_URL: http://api:8000
+    image: adversarial-control-ui:local
+    environment:
+      BACKEND_API_URL: http://api:8000
+      PORT: 3000
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${UI_PORT:-3000}:3000"
+    networks:
+      - control
+
+  worker:
+    <<: *app-security
+    build:
+      context: .
+      target: worker
+    image: adversarial-worker:local
+    environment:
+      <<: *persistence-environment
+      SERVICE_ROLE: worker
+      SERVICE_NAME: campaign-worker
+      CAPSULE_SUPERVISOR_URL: http://capsule-supervisor:8090
+      CAPSULE_SUPERVISOR_TOKEN: ${CAPSULE_SUPERVISOR_TOKEN:?set CAPSULE_SUPERVISOR_TOKEN in .env}
+      ATTACKER_MODEL_PROVIDER: ${ATTACKER_MODEL_PROVIDER:-heuristic}
+      ATTACKER_MODEL_BASE_URL: ${ATTACKER_MODEL_BASE_URL:-}
+      ATTACKER_MODEL_NAME: ${ATTACKER_MODEL_NAME:-}
+      ATTACKER_MODEL_API_KEY: ${ATTACKER_MODEL_API_KEY:-}
+      ATTACKER_MODEL_INPUT_COST_PER_MILLION: ${ATTACKER_MODEL_INPUT_COST_PER_MILLION:-0}
+      ATTACKER_MODEL_OUTPUT_COST_PER_MILLION: ${ATTACKER_MODEL_OUTPUT_COST_PER_MILLION:-0}
+      WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-1.0}
+      WORKER_LEASE_SECONDS: ${WORKER_LEASE_SECONDS:-30}
+      WORKER_MAX_ATTEMPTS: ${WORKER_MAX_ATTEMPTS:-3}
+      WORKER_RETRY_BASE_SECONDS: ${WORKER_RETRY_BASE_SECONDS:-1.0}
+      WORKER_RETRY_MAX_SECONDS: ${WORKER_RETRY_MAX_SECONDS:-30.0}
+      MAX_WORKER_CONCURRENCY: ${MAX_WORKER_CONCURRENCY:-4}
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+      mlflow:
+        condition: service_healthy
+      capsule-supervisor:
+        condition: service_healthy
+    volumes:
+      - local-artifacts:/app/var/artifacts
+      - research-uploads:/app/var/uploads
+    networks:
+      - control
+      - data
+
+networks:
+  control:
+  data:
+    internal: true
+
+volumes:
+  postgres-data:
+  minio-data:
+  mlflow-data:
+  local-artifacts:
+  research-uploads:
