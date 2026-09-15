@@ -1,5 +1,12 @@
 # MVP Alignment Report
 
+> **Historical snapshot — 2026-09-01.** The scope, results and deferred gates below
+> describe that revision. Since then, INF-01 added one controlled finance reference
+> target and INF-02–INF-12 added inference and research integration, with recorded
+> live Docker/PostgreSQL/MinIO checks. Real-model and held-out benchmark acceptance
+> remain outstanding. See [current status](../PROJECT_STATUS.md) and the
+> [reports index](README.md) before using this report for planning.
+
 Date: 2026-09-01  
 Reference: `input/backend-mvp-implementation-plan(1).md`  
 Scope: benchmark targets, intentionally vulnerable targets, and testing agents remain excluded by request. The operator UI was added as a later explicit requirement even though the original backend plan listed a frontend as excluded.

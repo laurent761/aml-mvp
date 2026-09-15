@@ -1,5 +1,12 @@
 # MVP Platform Validation Report
 
+> **Historical snapshot — 2026-09-01.** The scope, results and deferred gates below
+> describe that revision. Since then, INF-01 added one controlled finance reference
+> target and INF-02–INF-12 added inference and research integration, with recorded
+> live Docker/PostgreSQL/MinIO checks. Real-model and held-out benchmark acceptance
+> remain outstanding. See [current status](../PROJECT_STATUS.md) and the
+> [reports index](../reports/README.md) before using this report for planning.
+
 Date: 2026-09-01  
 Backend package: `adversarial-agent-mvp-backend 0.1.0`  
 Runtime: Python 3.12.13 and Node.js 22+

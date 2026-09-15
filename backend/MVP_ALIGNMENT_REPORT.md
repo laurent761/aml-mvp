@@ -1,5 +1,12 @@
 # MVP Alignment Report
 
+> **Historical snapshot — 2026-09-01.** The scope, results and deferred gates below
+> describe that revision. Since then, INF-01 added one controlled finance reference
+> target and INF-02–INF-12 added inference and research integration, with recorded
+> live Docker/PostgreSQL/MinIO checks. Real-model and held-out benchmark acceptance
+> remain outstanding. See [current status](../PROJECT_STATUS.md) and the
+> [reports index](../reports/README.md) before using this report for planning.
+
 Date: 2026-09-01  
 Reference: `input/backend-mvp-implementation-plan(1).md`  
 Scope: benchmark targets, intentionally vulnerable targets, and testing agents remain excluded by request. The operator UI was added as a later explicit requirement even though the original backend plan listed a frontend as excluded.
@@ -56,4 +63,5 @@ The release status is therefore **implemented with deferred external proof gates
 - Integrated production smoke: UI HTML, `/healthz`, `/readyz`, and `/v1/overview` succeeded through the same-origin UI proxy; a non-allowlisted path was not proxied.
 - Consolidated backend harness: `passed_with_deferred_gates` with no required or optional failures.
 
-See `MVP_VALIDATION_REPORT.md` and `var/validation/acceptance-validation.json` for the execution-level results.
+See [MVP validation](MVP_VALIDATION_REPORT.md) and the archived
+[acceptance output](../reports/acceptance-validation.json) for this snapshot's execution-level results.

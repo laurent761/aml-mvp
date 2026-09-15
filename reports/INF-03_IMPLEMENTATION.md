@@ -1,7 +1,11 @@
 # INF-03 implementation and validation
 
+> **Phase record.** The research-session APIs, idempotency and interruption handling
+> listed below as INF-04 work have since been implemented. See
+> [INF-04–INF-12](INF-04_TO_INF-12_IMPLEMENTATION.md) and [current status](../PROJECT_STATUS.md).
+
 Date: 2026-09-10.
-Specification: `Desktop/AML_Infrastructure_Completion_Plan.md`, INF-03.
+Specification: [Infrastructure Completion Plan](../backend/docs/AML_Infrastructure_Completion_Plan.md), INF-03 (originally supplied from Desktop).
 Workspace: `/Users/michelleberezin/Development/aml-mvp/backend`.
 
 ## Implemented

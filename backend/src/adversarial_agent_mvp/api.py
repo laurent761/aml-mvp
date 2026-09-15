@@ -405,6 +405,8 @@ def create_app(
     )
     from .research_api import install_research_api
     install_research_api(app, settings)
+    from .guide_api import install_guide_api
+    install_guide_api(app, settings)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins if cors_origins is None else cors_origins,

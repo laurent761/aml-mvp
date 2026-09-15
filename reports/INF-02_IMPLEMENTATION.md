@@ -1,7 +1,11 @@
 # INF-02 implementation and validation
 
+> **Phase record.** Research session recovery was subsequently delivered in
+> INF-04–INF-12; provider-side transactions and real-model acceptance remain outside
+> the recorded proof. See [current status](../PROJECT_STATUS.md).
+
 Date: 2026-09-10.
-Specification: `Desktop/AML_Infrastructure_Completion_Plan.md`, INF-02.
+Specification: [Infrastructure Completion Plan](../backend/docs/AML_Infrastructure_Completion_Plan.md), INF-02 (originally supplied from Desktop).
 Workspace: `/Users/michelleberezin/Development/aml-mvp/backend`.
 
 ## Delivered

@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  BookOpenText,
   Coins,
   Cpu,
   LockKeyhole,
@@ -95,6 +96,7 @@ import {
   shortId,
 } from "@/lib/api-client";
 import ResearchWorkspace from "./research-workspace";
+import GuideChat from "./guide-chat";
 
 type JsonObject = Record<string, unknown>;
 type View =
@@ -107,7 +109,8 @@ type View =
   | "findings"
   | "experiments"
   | "evidence"
-  | "system";
+  | "system"
+  | "guide";
 
 interface Overview {
   counts: Record<string, number>;
@@ -277,6 +280,7 @@ const emptyData: PlatformData = {
 };
 
 const navItems: { id: View; label: string; icon: typeof Gauge; group?: string }[] = [
+  { id: "guide", label: "Ask AML", icon: BookOpenText, group: "DOCUMENTATION" },
   { id: "overview", label: "Adversarial Overview", icon: Gauge, group: "WORKSPACE" },
   { id: "targets", label: "Targets", icon: Target },
   { id: "campaigns", label: "Attack Campaigns", icon: Activity },
@@ -480,11 +484,11 @@ export default function ControlPlatform() {
             <div><span>AML <span className="breadcrumb-slash">/</span> Research workspace</span><h1>{title}</h1></div>
           </div>
           <div className="topbar-actions">
-            <label className="global-search">
+            {view !== "guide" ? <label className="global-search">
               <Search aria-hidden="true" />
               <span className="sr-only">Filter current view</span>
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter this view" />
-            </label>
+            </label> : null}
             <button className={connected ? "health-chip health-chip--ok" : "health-chip"} onClick={() => setConnectionOpen(true)}>
               <CircleDot aria-hidden="true" /><span>{connected ? "API ready" : "API offline"}</span>
             </button>
@@ -496,7 +500,7 @@ export default function ControlPlatform() {
         <main id="main-content" className="content" tabIndex={-1}>
           {!connected && !loading ? <ConnectionBanner error={error} onOpen={() => setConnectionOpen(true)} /> : null}
           {connected && error && !loading ? <DataWarning message={error} /> : null}
-          {loading && !data.overview && !data.targets.length && !data.campaigns.length && !data.episodes.length ? <LoadingSurface /> : (
+          {view === "guide" ? <GuideChat key={`${apiBase}:${connectionRevision}`} apiBase={apiBase} /> : loading && !data.overview && !data.targets.length && !data.campaigns.length && !data.episodes.length ? <LoadingSurface /> : (
             <>
               {["targets", "experiments", "lab", "trajectories", "learning", "evidence", "system"].includes(view) ? <ResearchWorkspace key={`${apiBase}:${connectionRevision}:${view}`} apiBase={apiBase} view={view} search={search} /> : null}
               {view === "overview" ? <OverviewView data={data} connected={connected} navigate={navigate} onTarget={() => setTargetOpen(true)} onCampaign={() => setCampaignOpen(true)} onSelectCampaign={setSelectedCampaign} onSelectFinding={setSelectedFinding} /> : null}

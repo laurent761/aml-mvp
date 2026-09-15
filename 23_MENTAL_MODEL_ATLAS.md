@@ -1,6 +1,15 @@
 # AML MVP Mental Model Atlas
 
-This atlas collects every file-level mental model in one place. Read it top-to-bottom for a visual-only tour of the entire MVP.
+This atlas preserves the conceptual models from the original numbered design
+documents. The `01_…`–`22_…` headings identify specification topics; those individual
+source documents are not included in this checkout.
+
+**Implementation note (2026-09-14):** these diagrams combine delivered architecture
+and proposed research/product behavior. Use [current project status](PROJECT_STATUS.md)
+for shipped scope and [the interactive guide](architecture-guide.html) for the current
+SDK/session workflow. One Python finance target with fixture/model modes is supplied.
+INF-01–INF-12 infrastructure is implemented; real-model acceptance and benchmark
+improvement remain unproven. Specific differences are identified below.
 
 ---
 
@@ -19,7 +28,8 @@ flowchart TD
     X --> R["Trajectories"]
     R --> F{"Private forbidden-state predicate"}
     F -- "not reached" --> L["Learning from failure / near miss"]
-    F -- "reached" --> V["Verified Exploit after reproduction"]
+    F -- "reached" --> V["Verifier-backed finding"]
+    V --> REP["Separate fresh reproduction result"]
     V --> L
     L --> X
 
@@ -35,12 +45,19 @@ flowchart TD
     N --> N4["Custom RL training"]
 ```
 
-**Mental shortcut:** the MVP is an autonomous scientist-attacker. It takes a sealed target and a falsifiable security objective, runs controlled experiments, proves system-level compromise, and improves its next attempts from experience.
+**Mental shortcut:** AML runs controlled experiments against a sealed target and
+checks a falsifiable forbidden-state objective. Search can reuse experience;
+benchmark improvement and reproduction require separate evidence.
 
 
 ---
 
 ## 02_SYSTEM_ARCHITECTURE.md
+
+Current routing: the worker reaches the target through the supervisor's trusted
+Blue proxy. Blue and the target are the two containers on the capsule's internal
+network; the safety boundary below is a trust distinction. Research results expose
+outcomes/rewards separately; automatic attacker-model context receives public data only.
 
 ### Mental model — runtime architecture and trust boundaries
 
@@ -78,7 +95,7 @@ flowchart LR
     API --> DB
     API --> OBJ
 
-    VER -. "reward / progress only" .-> RED
+    VER -. "trusted search accounting only; not model context" .-> RED
     WORLD -. "private state never exposed" .-> VER
     GW -. "blocks real-world effects" .-> TARGET
 ```
@@ -159,21 +176,26 @@ flowchart LR
 
 ## 05_TARGETS_AND_TARGET_CONTRACT.md
 
+Implemented target endpoints are health, invoke and reset; research-session creation
+belongs to the control API. Bundles declare `fixture` or `model` mode. Replay is a
+platform operation, not a third target mode. No real-model benchmark result is recorded.
+
 ### Mental model — what makes any agent testable by AML
 
 ```mermaid
 flowchart TD
     IMG["Immutable OCI target image"] --> MAN["Target manifest"]
     MAN --> API["Standard black-box API"]
-    API --> S1["Create session"]
+    CONTROL["Control API"] --> S1["Create research session"]
+    S1 --> API
     API --> S2["Invoke"]
     API --> S3["Reset"]
     API --> S4["Health / readiness"]
 
     API --> MODES["Execution modes"]
     MODES --> F["Fixture<br/>deterministic dev"]
-    MODES --> L["Live benchmark<br/>real model calls"]
-    MODES --> R["Replay-debug<br/>for investigation"]
+    MODES --> L["Model<br/>operator-configured inference"]
+    CONTROL --> R["Fresh reproduction / replay"]
 
     RESET["Reset invariant"] --> BASE["Same scenario baseline every episode"]
     BASE --> FAIR["Fair comparison + branch replay"]
@@ -191,11 +213,17 @@ flowchart TD
 
 ## 06_TARGET_AGENTS_BENCHMARK.md
 
+**Proposed benchmark design, not a shipped agent inventory.** Only the custom Python
+`finance-invoice-summary` development scenario (1.1.0) is supplied. LangGraph/OpenAI
+Agents SDK implementations, held-out variants and formal generalization evidence
+remain future work. Simulator/verifier primitives do not establish coverage of every
+benchmark case pictured below.
+
 ### Mental model — the benchmark world
 
 ```mermaid
 flowchart TD
-    W["One high-fidelity Finance Operations world"] --> A["Multiple opaque target implementations"]
+    W["Proposed Finance Operations benchmark world"] --> A["Planned multiple target implementations"]
     A --> A1["Custom Python"]
     A --> A2["LangGraph"]
     A --> A3["OpenAI Agents SDK"]
@@ -224,6 +252,10 @@ flowchart TD
 ---
 
 ## 07_ATTACK_CAMPAIGNS_AND_ORCHESTRATION.md
+
+This is the legacy campaign model. Durable research sessions add expected step
+indices and operation idempotency; uncertain in-flight actions become `indeterminate`
+and retire the episode. They are not retried by the conceptual failure arrow below.
 
 ### Mental model — how a campaign becomes reliable work
 
@@ -308,6 +340,10 @@ flowchart TD
 
 ## 09_RED_INTELLIGENCE_ENGINE.md
 
+Legacy campaigns include linear/adaptive search and strategy memory. Managed research
+sessions use linear Red with an approved runtime and disable strategy memory.
+External sessions accept actions from the researcher's SDK loop.
+
 ### Mental model — the attacker brain
 
 ```mermaid
@@ -329,8 +365,7 @@ flowchart LR
     CH["Attacker channels"] --> GEN
     CH --> C1["Direct text"]
     CH --> C2["Documents"]
-    CH --> C3["Memory poisoning"]
-    CH --> C4["Controlled tool inputs"]
+    CH --> C4["Declared tool-result replacement"]
 
     PRIVATE["Private verifier state"] -. "never enters Red context" .-> CTX
 ```
@@ -341,6 +376,11 @@ flowchart LR
 ---
 
 ## 10_SEARCH_REWARD_AND_LEARNING.md
+
+The diagram describes legacy search memory. External training metadata, dataset
+snapshots and checkpoint storage are implemented, but AML does not train weights.
+Paired research evaluation disables cross-run strategy memory; no held-out learning
+lift is claimed. There is no separate direct-memory-poisoning action channel.
 
 ### Mental model — how experience becomes better search
 
@@ -426,15 +466,19 @@ flowchart LR
     TARGET -.- X3["No production credentials"]
     TARGET -.- X4["No cloud metadata / host mounts / Docker socket"]
 
-    MODEL["Model Gateway"] --> PROVIDER["Approved model provider"]
-    TARGET --> MODEL
+    TARGET --> MAILBOX["Blue inference mailbox"]
+    SUP["Supervisor-owned broker"] --> PROVIDER["Pinned model provider"]
+    SUP -- "claim / complete through Docker control channel" --> MAILBOX
 
     PREF["Containment preflight"] --> CAP
     KILL["Kill switch + resource limits"] --> CAP
     GW --> AUDIT["Effect audit trail"]
 ```
 
-**Mental shortcut:** never trust the agent to obey a safety prompt. The capsule and network topology make dangerous paths impossible, while the Safety Gateway converts consequential actions into simulated effects that are still realistic enough to evaluate.
+**Mental shortcut:** enforce routing and isolation below the model. Blue sends business
+effects to simulated services; the supervisor relays restricted inference. Docker
+research containment has recorded runtime checks, but Docker shares the host kernel
+and is not an audited Firecracker boundary.
 
 
 ---
@@ -474,6 +518,10 @@ flowchart TD
 
 ## 14_VERIFIED_EXPLOITS_AND_FINDINGS.md
 
+Current UI semantics: “Verified Exploits” are deterministic verifier-backed findings.
+This does not imply successful reproduction or deduplication into a vulnerability
+family. Reproduction is recorded separately.
+
 ### Mental model — when a candidate becomes a product finding
 
 ```mermaid
@@ -481,12 +529,13 @@ flowchart LR
     T["High-reward trajectory"] --> C["Candidate exploit"]
     C --> V1{"Private forbidden-state proof?"}
     V1 -- "No" --> N["Near miss"]
-    V1 -- "Yes" --> R["Independent reproduction"]
+    V1 -- "Yes" --> X["Verifier-backed finding / Verified Exploit in UI"]
+    X --> R["Independent reproduction"]
     R --> V2{"Reproduction requirement met?"}
-    V2 -- "No" --> N
-    V2 -- "Yes" --> X["Verified Exploit"]
+    V2 -- "No" --> DIV["Divergence / failed reproduction recorded"]
+    V2 -- "Yes" --> CONF["Reproduction confirmed separately"]
 
-    X --> D["Deduplicate / cluster into exploit family"]
+    X -. "proposed analysis" .-> D["Deduplicate / cluster into exploit family"]
     X --> E["Evidence bundle"]
     X --> P["Preconditions + root-cause labels"]
     X --> M["First/last seen + target versions"]
@@ -496,7 +545,9 @@ flowchart LR
     X --> L
 ```
 
-**Mental shortcut:** “candidate” and “verified” must never be conflated. A finding becomes a Verified Exploit only after environment-grounded proof and independent reproduction, then it is deduplicated and packaged with complete evidence.
+**Mental shortcut:** distinguish a verifier-backed consequence, a reproduced consequence
+and a deduplicated vulnerability. High reward alone establishes none of them; the
+current finding record establishes the first.
 
 
 ---
@@ -508,7 +559,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     DB["Canonical domain data"] --> API["Versioned REST API"]
-    EVENTS["Live execution events"] --> STREAM["SSE / WebSocket stream"]
+    EVENTS["Persisted execution records"] --> STREAM["HTTP polling"]
 
     API --> T["Targets read model"]
     API --> C["Campaigns read model"]
@@ -526,7 +577,7 @@ flowchart LR
     STREAM --> LAB["Live Attack Lab"]
 
     CONTRACT["Strict semantic contracts"] --> CAND["candidate ≠ verified"]
-    CONTRACT --> PRIV["private verifier state never exposed"]
+    CONTRACT --> PRIV["private evidence requires scope; never automatic model input"]
     CONTRACT --> VERS["all target / Red / scenario versions explicit"]
 ```
 
@@ -637,6 +688,10 @@ flowchart TD
 
 ## 19_IMPLEMENTATION_PHASES.md
 
+This is the original build-order proposal. Delivered work is tracked by
+[INF-01–INF-12 reports](reports/README.md); a phase's presence in this diagram does not
+claim its research acceptance gates have passed.
+
 ### Mental model — build order and dependency chain
 
 ```mermaid
@@ -667,6 +722,10 @@ The build order optimizes for **research velocity** and a falsifiable core thesi
 ---
 
 ## 20_MVP_DEFINITION_OF_DONE.md
+
+This remains a research acceptance gate, not a current completion claim.
+Infrastructure fixture acceptance passed in the recorded run; real-model behavior,
+multi-target benchmark coverage and adaptive improvement remain unproven.
 
 ### Mental model — the final acceptance gate
 
@@ -704,7 +763,7 @@ flowchart LR
     C --> L["Live Attack Lab<br/>What is Red trying right now?"]
     L --> E["Experiments<br/>How did runs compare?"]
     E --> TR["Trajectories<br/>Exactly what happened?"]
-    TR --> X["Verified Exploits<br/>What is proven + reproducible?"]
+    TR --> X["Verified Exploits<br/>What was verified? Did replay reproduce?"]
     X --> LEARN["Learning<br/>How is Red getting better?"]
     LEARN -. "improves future campaigns" .-> C
 
@@ -749,8 +808,8 @@ flowchart LR
     SH --> RUN["Campaign / Experiment / Environment integration"]
 
     HOLD["Held-out separation"] --> H1["Platform keeps private vulnerabilities, seeds, aliases, oracle data"]
-    HOLD --> H2["Red gets only public contract + observations + reward/terminal signals"]
+    HOLD --> H2["Attacker-model input: public contract + observations only"]
+    HOLD --> H3["Research outputs: separate outcomes, measurements and rewards"]
 ```
 
 **Mental shortcut:** platform engineering owns the trustworthy laboratory; data science owns the attacker intelligence. They meet at explicit shared contracts, while held-out secrets stay organizationally separated to keep generalization claims credible.
-

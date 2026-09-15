@@ -28,6 +28,7 @@ test("renders the complete operator navigation and containment posture", async (
   const html = renderToStaticMarkup(React.createElement(ControlPlatform));
 
   for (const label of [
+    "Ask AML",
     "Adversarial Overview",
     "Targets",
     "Attack Campaigns",
@@ -93,4 +94,29 @@ test("attack workspace cannot fetch or launch defensive workflows", async () => 
   assert.doesNotMatch(source, /\/v1\/policy-versions|\/v1\/hardening-runs|\$\{finding\.finding_id\}\/hardening/);
   assert.doesNotMatch(source, /function PolicyDialog|function PoliciesView|Defense policies|Harden finding|Benign regression/);
   assert.match(source, /search_nearby_bypasses: nearby, reproduction_only: true/);
+});
+
+
+test("documentation citations render untrusted content as text and merge repeated source buttons", async () => {
+  const { CitedParagraph } = await vite.ssrLoadModule("/app/guide-chat.tsx");
+  const attack = '<script>alert("untrusted")</script>';
+  const html = renderToStaticMarkup(React.createElement(CitedParagraph, {
+    paragraph: { text: attack, support: [{ source: 1, quote: attack }, { source: 1, quote: "Another exact quote" }] },
+    sources: [{ number: 1, references: [{ heading: "Reset / Lifecycle", path: "guide.html" }] }],
+    onSource() {},
+  }));
+  assert.doesNotMatch(html, /<script>|href=/);
+  assert.match(html, /&lt;script&gt;/);
+  assert.match(html, /Supporting quotes/);
+  assert.equal((html.match(/<button/g) || []).length, 1);
+  assert.match(html, /Inspect source 1: Reset \/ Lifecycle/);
+});
+
+test("documentation composer waits for backend status before accepting questions", async () => {
+  const { default: GuideChat } = await vite.ssrLoadModule("/app/guide-chat.tsx");
+  const html = renderToStaticMarkup(React.createElement(GuideChat, { apiBase: "" }));
+  assert.match(html, /Connecting to documentation/);
+  assert.match(html, /textarea[^>]*disabled/);
+  assert.match(html, /Source evidence/);
+  assert.doesNotMatch(html, /type="password"|sk-/);
 });

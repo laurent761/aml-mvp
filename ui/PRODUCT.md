@@ -18,6 +18,14 @@ AML is the research workspace for autonomous adversarial testing of agent system
 
 Primary pages: Adversarial Overview, Targets, Attack Campaigns, Experiments, Live Attack Lab, Trajectories, Verified Exploits, and Learning. Evidence and system operations support the research workflow. Policy management and defensive hardening are outside this MVP interface. Preserve immutable target/task/configuration contracts, campaign cancellation, evidence export, exact replay and nearby attack mutations.
 
+Research runs group SDK-controlled or managed sessions; each research reset creates
+a new episode. The existing navigation also shows the SDK's sessions, generation
+records, delivery receipts, datasets, checkpoints, paired evaluations and component
+health. Views use authenticated HTTP polling and retain explicit owner/scope limits.
+Training is externally launched; the UI inspects its records rather than configuring
+the trainer. The shipped controlled target is one finance reference agent; see
+[project status](../PROJECT_STATUS.md) for coverage and validation limits.
+
 Verified exploits are deterministic finding records, not deduplicated vulnerabilities or automatically confirmed reproductions. Exact replay confirmation requires the same target version, task, original runtime conditions, and verifier. Strategy memory reports historical outcomes, not model weight training or proven learning uplift. Experiment comparisons are descriptive and use loaded records with explicit denominators; incomplete or interrupted episodes are excluded.
 
 This is the standalone AML product. Its product model is active experimentation; it does not include asset scanning, governance/posture scoring, capability maps, or a production runtime recorder.

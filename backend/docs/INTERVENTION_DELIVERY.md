@@ -92,4 +92,8 @@ AML_REFERENCE_BLUE_IMAGE=aml-inf03-blue:local OTEL_ENABLED=false uv run pytest
 
 The live inference test uses an explicitly scripted HTTP provider outside the internal capsule network and exercises all three surfaces through the actual model-mode target. It verifies receipts, virtual tool consequences, reset, provider credential isolation, blocked outbound connectivity, and usage accounting. This is delivery/inference wiring evidence; it is not a real-model behavior result.
 
-Research session APIs, action-level idempotency/recovery, and durable handling of abruptly interrupted workers remain INF-04. This phase does not open capsule network access or add arbitrary intervention surfaces.
+Research session APIs, action-level idempotency/recovery and worker-interruption
+handling are implemented in [INF-04–INF-12](RESEARCH_INTEGRATION.md). Research reset
+creates a fresh episode/capsule and retains the prior trajectory. The capsule-local
+reset behavior above describes resets within an existing episode. Only the declared
+surfaces are supported; direct memory poisoning is not a separate action channel.

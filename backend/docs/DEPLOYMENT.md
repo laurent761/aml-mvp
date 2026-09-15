@@ -1,5 +1,9 @@
 # Deployment Guide
 
+Commands in this guide run from `backend/`. For the separate authenticated fixture
+demo, use the [root runbook](../../README.md). See [project status](../../PROJECT_STATUS.md)
+for the distinction between implemented controls and recorded validation.
+
 This guide describes the single-node Docker Compose profile used for internal research and design-partner evaluation. It packages the operator UI, control API, campaign worker, capsule supervisor, Blue gateway image, PostgreSQL, MinIO, MLflow, and an OpenTelemetry collector.
 
 The repository includes a synthetic finance reference target for fixture validation.
@@ -19,7 +23,7 @@ The capsule supervisor is the only application service that receives the Docker 
 ## Configure
 
 ```bash
-cp .env.example .env
+test -f .env || cp .env.example .env
 ```
 
 The checked-in values are development-only. For any non-development deployment, replace at least:
@@ -29,14 +33,27 @@ The checked-in values are development-only. For any non-development deployment, 
 - `CAPABILITY_SIGNING_KEY`
 - `CAPSULE_SUPERVISOR_TOKEN`
 
+Keep `DATABASE_URL` consistent with the PostgreSQL user, password and database.
+Configure `RESEARCH_AUTH_REQUIRED=true` and a nonempty `RESEARCH_AUTH_TOKENS`
+digest-to-principal map on the API; production API startup requires both. The
+[research integration guide](RESEARCH_INTEGRATION.md#install-and-connect) defines
+token scopes, ownership and rotation. TLS termination remains a deployment concern.
+
 Generate signing material with a cryptographically secure generator. Both application tokens must be at least 32 characters. The process refuses the checked-in development signing values when `DEPLOYMENT_ENVIRONMENT` is `test` or `production`; production also refuses SQLite.
 
 Compose assigns a fixed `SERVICE_ROLE` to each process. Settings validation uses that
-role so each container receives only the secrets it actually consumes: the API gets
-database/object-store credentials, the worker additionally gets the model and
-supervisor credentials, Blue gets only its signing key, and the Docker-privileged
-supervisor gets only its lifecycle/signing credentials. Do not override these roles or
+role: the API gets database/object-store credentials and the hashed research
+principal map; the worker gets persistence, attacker-model and supervisor credentials;
+Blue gets its signing key; and the Docker-privileged supervisor gets lifecycle/signing
+credentials plus `TARGET_MODEL_*` provider configuration. Neither target nor Blue
+receives provider credentials. Registered attacker-runtime credential references must
+resolve in the worker environment. Do not override these roles or
 reintroduce a shared all-secrets environment block when adapting this profile.
+
+The separate `compose.research-smoke.yaml` is a fixture acceptance profile: its shared
+environment also supplies the supervisor token to the API/migration service, and its
+supervisor fixes `TARGET_MODEL_PROVIDER=disabled`. It is not the credential layout or
+model configuration of the complete profile described here.
 
 On Linux, set `DOCKER_GID` to the group owner of the Docker socket:
 
@@ -119,10 +136,11 @@ The local capsule supervisor becomes a narrow proxy to that runner. Do not set `
 - MinIO evidence and MLflow artifacts: `minio-data`
 - MLflow run metadata: `mlflow-data`
 - Local artifact fallback: `local-artifacts`
+- In-progress research uploads shared by API and worker: `research-uploads`
 
 The application artifact backend is selected with `ARTIFACT_BACKEND`. The Compose profile selects `s3`, points it at MinIO, and initializes `S3_BUCKET`. Local storage is intended only for development.
 
-Back up PostgreSQL and MinIO together so database artifact references and objects remain consistent. Test restoration before a design-partner campaign. MLflow metadata can be backed up separately, but it should be retained with the campaign evidence it describes.
+Back up PostgreSQL and MinIO together so database artifact references and objects remain consistent. Include `local-artifacts` when using local storage. Complete or cancel active uploads before a backup, or retain `research-uploads` consistently with their database records. Test restoration before a design-partner campaign. MLflow metadata can be backed up separately, but it should be retained with the campaign evidence it describes.
 
 ## Telemetry
 
@@ -182,7 +200,9 @@ Do not call a deployment validated solely because unit tests pass. A release env
 - Target reachability only to Blue
 - Failed DNS, public internet, RFC1918 production ranges, and cloud metadata access
 - Successful teardown after completion, failure, cancellation, and supervisor restart
-- Finding replay with a versioned policy and benign regression behavior
+- Fresh research reproduction with pinned conditions and explicit divergence
+- Authenticated SDK access, ownership/scope enforcement, streamed artifact integrity and UI record consistency
+- Legacy policy replay and benign regression behavior when deploying those backend workflows
 
 ## Stop
 
@@ -190,4 +210,4 @@ Do not call a deployment validated solely because unit tests pass. A release env
 docker compose down
 ```
 
-This preserves named volumes. `docker compose down --volumes` permanently deletes local PostgreSQL, MinIO, MLflow, and fallback artifact data and should be used only for an intentionally disposable environment.
+This preserves named volumes. `docker compose down --volumes` permanently deletes local PostgreSQL, MinIO, MLflow, fallback artifacts and pending uploads and should be used only for an intentionally disposable environment.

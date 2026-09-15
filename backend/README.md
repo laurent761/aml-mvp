@@ -1,5 +1,8 @@
 # Adversarial Agent MVP Backend
 
+See [current project status](../PROJECT_STATUS.md) for delivered scope, controlled
+agent coverage, remaining acceptance work and the documentation map.
+
 Runnable Phase-0-to-MVP backend for black-box adversarial testing of agent systems. It contains the control plane, durable campaign queue, Red search infrastructure, trusted Blue boundary, stateful virtual services, deterministic verification, capsule supervision, replay, and evidence export. The complete platform bundle also includes the `ui/` operator console and wires it to this API through the Docker Compose profile.
 
 INF-01 includes one synthetic finance reference target, reusable target bundles, and a public scenario catalog. See [Target bundles](docs/TARGET_BUNDLES.md) for building an immutable image, registering its scenario, and testing benign behavior, a known verified consequence, and reset. [INF-02 target inference](docs/TARGET_INFERENCE.md) adds a supervisor-owned broker with pinned operator configuration, episode-scoped access, limits, and private usage accounting while preserving capsule isolation. [INF-03 intervention delivery](docs/INTERVENTION_DELIVERY.md) adds explicit message, document, and tool-response slots with verifiable delivery receipts. The development fixture is not a benchmark result; custom-model training remains separate work.
@@ -12,27 +15,38 @@ datasets/checkpoints, approved runtimes, executed evaluations, scoped access and
 research records. Training stays externally launched; real-model configuration remains
 a placeholder. A separate Compose acceptance workflow is included in that guide.
 
+For API-only development, run from `backend/`:
+
 ```bash
-uv sync --extra dev
+uv sync --extra dev --locked
+export DEPLOYMENT_ENVIRONMENT=development
+export SERVICE_ROLE=api
+export DATABASE_URL=sqlite:///./adversarial_mvp.db
+export ARTIFACT_BACKEND=local
+export OTEL_ENABLED=false
 uv run alembic upgrade head
 uv run uvicorn adversarial_agent_mvp.api:create_app --factory --reload
 ```
 
-The default development database is SQLite. Set `DATABASE_URL` to a PostgreSQL URL in real deployments. Run the worker separately:
+These overrides keep a copied Compose `.env` from pointing the host process at the
+container-only `postgres` hostname or enabling telemetry without a collector URL.
+Existing research authentication settings still apply. Use PostgreSQL for deployed
+execution. API startup alone does not provision capsules: episodes need a worker,
+matching persistence settings, and a running supervisor configured through
+`CAPSULE_SUPERVISOR_URL` and `CAPSULE_SUPERVISOR_TOKEN`. Prefer the
+[root Compose runbook](../README.md) for the complete workflow. A separately configured
+host worker starts with `SERVICE_ROLE=worker uv run adversarial-worker`.
 
-```bash
-uv run adversarial-worker
-```
-
-From the packaged platform root, the complete customer-side stack starts with:
+In a fresh terminal (without the API-only overrides above), the complete local stack
+starts from the repository root with:
 
 ```bash
 cd backend
-cp .env.example .env
+test -f .env || cp .env.example .env
 docker compose up --build
 ```
 
-The operator console is then available at `http://127.0.0.1:3000` and the API at `http://127.0.0.1:8000`. See `../ui/README.md` and `docs/DEPLOYMENT.md` for source-development and security details.
+The operator console is then available at `http://127.0.0.1:3000` and the API at `http://127.0.0.1:8000`. Review `.env` before starting. See [UI development](../ui/README.md) and [deployment](docs/DEPLOYMENT.md) for configuration details.
 
 ## Validation
 

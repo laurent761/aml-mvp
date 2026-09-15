@@ -1,5 +1,9 @@
 # INF-04–INF-12 implementation and validation
 
+> **Dated execution evidence.** The results below belong to the September 10 run;
+> they are not a fresh test run or a deployment health check. See
+> [current scope and remaining acceptance work](../PROJECT_STATUS.md).
+
 Date: 2026-09-10. Project: `/Users/michelleberezin/Development/aml-mvp`.
 
 The remaining infrastructure phases are implemented in the moved project. INF-01,
@@ -28,9 +32,9 @@ configuration, limits and reproducible local deployment steps.
 
 The final backend run passed **317 tests, with no failures or skips**, including live
 Docker, PostgreSQL and MinIO gates. Coverage was **85.67%**, above the required 75%.
-Seven existing dependency/configuration deprecation warnings remain. The
-[test log](validation/INF-04-12_BACKEND_TESTS.log) and
-[JUnit report](validation/INF-04-12_BACKEND_JUNIT.xml) preserve the results.
+Seven existing dependency/configuration deprecation warnings remain. The checked-in
+[JUnit report](validation/INF-04-12_BACKEND_JUNIT.xml) preserves the results. The local
+console test log is not included in the repository.
 
 - All **28 UI tests** passed; UI lint, generated Cloudflare declarations, TypeScript
   checking and production build passed.

@@ -1,7 +1,12 @@
 # INF-01 implementation and validation
 
+> **Phase record.** Later phases delivered the inference broker, intervention
+> receipts and research APIs that this report lists as future work. Its test results
+> remain dated evidence. See [current status](../PROJECT_STATUS.md) and the
+> [reports index](README.md).
+
 Date: 2026-09-10.
-Specification: `Desktop/AML_Infrastructure_Completion_Plan.md`, INF-01.
+Specification: [Infrastructure Completion Plan](../backend/docs/AML_Infrastructure_Completion_Plan.md), INF-01 (originally supplied from Desktop).
 
 ## Implemented
 

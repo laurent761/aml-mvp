@@ -5,6 +5,10 @@ managed Red sessions, immutable data exports, external training metadata, checkp
 approved model runtimes, paired evaluations and fresh reproduction. The current UI
 reads these same records in its existing navigation.
 
+See [current project status](../../PROJECT_STATUS.md) for controlled-agent coverage
+and the documentation map. The shipped target is one finance reference agent with
+fixture/model modes; benchmark registration does not supply additional target agents.
+
 Training is **externally launched**, as selected for this handoff. The researcher
 chooses hardware, trainer, optimizer, model and checkpoint loading. Target model,
 provider endpoint and credentials remain **placeholders**. Fixture acceptance proves
@@ -43,7 +47,8 @@ scope approves runtimes/suites and accesses legacy administration. `evaluation`
 permits held-out cases and evaluation operations; `evidence` permits private trace
 reads. Ownership remains enforced on research sessions, runs, datasets, checkpoints
 and artifacts. The deployment's TLS/reverse proxy should preserve the bearer header.
-Health probes remain available without authentication. Production API startup fails
+Basic `/healthz` and `/readyz` probes remain available without authentication;
+`/v1/research-health` requires research access. Production API startup fails
 if research authentication is not configured.
 
 The UI connection dialog accepts an optional research token, held in memory. With
@@ -224,11 +229,19 @@ var/sdk-acceptance/bin/python ../sdk/examples/acceptance.py --connection var/res
 var/sdk-acceptance/bin/python ../sdk/examples/managed_acceptance.py --connection var/research-smoke.client.json --acceptance var/acceptance.json --endpoint http://host.docker.internal:8099
 # Optional destructive fault injection into this acceptance worker only.
 var/sdk-acceptance/bin/python scripts/research_fault_acceptance.py --connection var/research-smoke.client.json --output var/fault-acceptance.json
-docker compose --env-file var/research-smoke.env -f compose.research-smoke.yaml down -v
+docker compose --env-file var/research-smoke.env -f compose.research-smoke.yaml down
 ```
 
-For a fresh checkout build current images with the main Compose file first (`api`,
-`worker`, `capsule-supervisor`, `blue-gateway`, `ui`), following [deployment setup](DEPLOYMENT.md).
+This stop command preserves results. Add `-v` only to discard this profile's database,
+uploads and artifacts; saved record IDs will no longer resolve afterward.
+
+For a fresh checkout, use the explicit image-build commands in the
+[root runbook](../../README.md#1-install-and-build), which match this profile's tags.
+The main Compose file builds the UI as `adversarial-control-ui:local`, whereas this
+acceptance profile defaults to `adversarial-ui:local`. If using main-Compose builds,
+set `RESEARCH_SMOKE_UI_IMAGE=adversarial-control-ui:local` for acceptance startup.
+The fixture supervisor fixes `TARGET_MODEL_PROVIDER=disabled`; use
+[target inference](TARGET_INFERENCE.md) with the complete profile for a real model.
 The alternative `Dockerfile.cached` files are validation fallbacks when dependency
 downloads are unavailable. They require the documented locally cached base images
 with matching lockfile versions; they are not portable distribution images. Build
@@ -239,5 +252,5 @@ the fallback API as `aml-research-backend:validation`, Blue as
 Run regressions with `OTEL_ENABLED=false uv run pytest`, `uv run ruff check .`,
 `uv run pyright`, `uv build`, and the UI's `npm run lint`, `npm run typecheck`,
 `npm test`. Live gates require the disposable PostgreSQL URL and reference image
-settings documented in their test modules. The infrastructure completion report at
-`reports/INF-04_TO_INF-12_IMPLEMENTATION.md` records the actual validation results.
+settings documented in their test modules. The
+[INF-04–INF-12 report](../../reports/INF-04_TO_INF-12_IMPLEMENTATION.md) records the dated validation results.

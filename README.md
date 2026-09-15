@@ -5,9 +5,15 @@ the resulting effects, and recording reproducible research data. Researchers cho
 actions through a Python SDK or let the Red runner call an approved attacker runtime.
 Business effects go to simulated services inside an isolated capsule.
 
-**Open [project-guide.html](project-guide.html) in your browser for the interactive
-end-to-end guide.** It works offline and explains the architecture, episode lifecycle,
-public/private boundary, training handoff and evaluations.
+**Open the [architecture and lifecycle guide](architecture-guide.html)** for CTOs,
+architects and data scientists. The offline page combines the component reference,
+system map, intervention walkthrough, recovery semantics and data-to-evaluation
+lifecycle. Installation and executable commands are maintained in this README.
+
+**Current scope:** one controlled Python finance reference agent is implemented,
+with scripted fixture and configurable model modes. A broader benchmark agent suite
+and real-model acceptance are still outstanding. See [project status and the full
+documentation map](PROJECT_STATUS.md); older MVP reports describe earlier snapshots.
 
 | Directory | Purpose |
 |---|---|
@@ -20,6 +26,13 @@ public/private boundary, training handoff and evaluations.
 Real target model, provider endpoint and credentials remain **placeholders**. The
 reference fixture works without a selected model. Training is **externally launched**:
 the researcher supplies hardware, training code and checkpoint loading.
+
+## Documentation assistant
+
+Open **Ask AML** in the console to search the HTML guide and its linked documents.
+Generated answers use an OpenAI-compatible model and inspectable citations. See the
+[setup and index-refresh guide](backend/docs/GUIDE_CHAT.md); source search works
+without a model key.
 
 ## Prerequisites
 
@@ -37,13 +50,14 @@ below. Its named data volumes are preserved.
 ## First run: authenticated research demo
 
 This profile starts PostgreSQL, API, worker, supervisor and UI with generated
-credentials, separate volumes and loopback ports. Commands below run from `backend/`.
+credentials, separate volumes and loopback ports. Start at the repository root;
+the build step enters `backend/`, where the remaining demo commands run.
 
 ### 1. Install and build
 
 ```bash
-cd /Users/michelleberezin/Development/aml-mvp/backend
-uv sync --extra dev
+cd backend
+uv sync --extra dev --locked
 docker build --target api -t adversarial-api:local .
 docker build --target worker -t adversarial-worker:local .
 docker build --target capsule-supervisor -t adversarial-capsule-supervisor:local .
@@ -51,7 +65,7 @@ docker build --target blue-gateway -t blue-gateway:local .
 docker build -t adversarial-ui:local ../ui
 ```
 
-Replace the first path for another checkout. Backend images share cached build layers.
+Run the first command from the repository root. Backend images share cached build layers.
 On Linux, check `stat -c '%g' /var/run/docker.sock` and set `DOCKER_GID` to that group
 before starting Compose if it differs from the default `0`.
 
@@ -77,6 +91,9 @@ files on subsequent starts. Keep both local.
 In the UI connection dialog, use the same-origin proxy and paste the `token` value
 from `var/research-smoke.client.json`. It stays in browser memory. This demo token has
 operator permissions for onboarding and suite registration.
+
+This acceptance profile fixes target inference to `disabled`. Use the complete stack
+and the target-inference guide below for real-model configuration.
 
 ### 3. Build and register a target
 
@@ -209,8 +226,8 @@ BACKEND_API_URL=http://127.0.0.1:18000 npm run dev
 ```
 
 Open the Vite port shown in the terminal, usually **5173**. For an API-only development
-process use `uv run uvicorn adversarial_agent_mvp.api:create_app --factory --reload`
-from `backend/`. Episodes additionally need the worker and a configured supervisor.
+process, follow the environment overrides in the [backend quick start](backend/README.md#quick-start).
+Episodes additionally need the worker and a configured supervisor.
 A database hostname such as `postgres` in `.env` is a Compose service name, not a host URL.
 
 ```bash

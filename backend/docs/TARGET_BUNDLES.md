@@ -2,6 +2,11 @@
 
 This phase implements the reference target and catalog described in `AML_Infrastructure_Completion_Plan.md` (2026-09-10). Existing externally registered targets and legacy tasks remain compatible. Capsule inference is supplied by the subsequent [INF-02 implementation](TARGET_INFERENCE.md).
 
+The repository supplies **one custom Python controlled target**, with `fixture` and
+`model` execution modes using the same agent loop. It does not yet supply the multiple
+framework targets or held-out variants proposed in the atlas. See
+[current implementation status](../../PROJECT_STATUS.md).
+
 ## Reference workflow
 
 `finance-invoice-summary`, version `1.1.0`, is a **development** scenario in the `finance-operations` family. It is a starting point for agreeing benchmark behavior with the data scientist, not a frozen train/test benchmark. Previously registered 1.0.0 versions remain immutable and supported.
@@ -30,7 +35,11 @@ OTEL_ENABLED=false uv run adversarial-bundle smoke var/bundles/finance-reference
 uv run adversarial-bundle reference --image 'registry.example/team/target@sha256:<actual-digest>' --output var/bundles/finance-reference.json
 ```
 
-The target image contains `aml_reference_target` and its dependencies. It does not contain the control-plane package, scenario assets, private baseline, verifier, or database. The source Dockerfile is `targets/reference/Dockerfile`.
+The target image contains `aml_reference_target`, the shared `aml_target_protocol`
+package, and dependencies. It excludes the control-plane source, private scenario
+assets, verifier implementation and database. The target package does include its
+explicit `WiringFixtureModel`; fixture behavior is not hidden benchmark ground truth.
+The source Dockerfile is `targets/reference/Dockerfile`.
 
 The Docker smoke creates an isolated target/Blue pair, checks the real invocation/reset contracts, asserts benign tool effects and delivered summary, verifies the known consequence, compares the initial and reset world snapshots, checks cleared verifier history, and cleans up its own resources even on failure. It reports the observed containment proof. It does not change an existing deployment or database.
 
@@ -64,14 +73,14 @@ OTEL_ENABLED=false uv run adversarial-bundle register var/bundles/finance-refere
 OTEL_ENABLED=false uv run adversarial-api
 ```
 
-The registration result provides `bundle_id`, `scenario_version_id`, `target_version_id`, and `attack_task_id`. These target/task IDs work with the existing campaign API and worker. The worker resolves private scenario state using its repository and supplies only target configuration to the target reset endpoint. Initial world state and verifier definitions stay on the trusted side of Blue.
+The registration result provides `bundle_id`, `scenario_version_id`, `target_version_id`, and `attack_task_id`. These target/task IDs work with the existing campaign API and worker; `bundle_id` opens a research session through the SDK. Registration does not execute acceptance checks. The worker resolves private scenario state using its repository and supplies target configuration and declared intervention surfaces to the target reset endpoint. Initial world state and verifier definitions stay on the trusted side of Blue.
 
 Public discovery endpoints:
 
 - `GET /v1/scenarios` with optional `family`, `split`, `limit`, and `offset`.
 - `GET /v1/scenarios/{scenario_version_id}` for one immutable scenario.
 
-Each result contains the public task description, permitted surfaces/operations, version/family/split, and registered target/task bindings with their declared fixture/model mode. It excludes world records, system prompts, verifier parameters, known attack fixtures, and expected outcomes. The existing administrative APIs retain their existing access model; remote authenticated researcher access is INF-11.
+Each result contains the public task description, permitted surfaces/operations, version/family/split, and registered target/task bindings with their declared fixture/model mode. It excludes world records, system prompts, verifier parameters, known attack fixtures, and expected outcomes. The SDK uses `GET /v1/research-catalog`, which also exposes bundle bindings and caller-specific session status. INF-11 bearer authentication and ownership are implemented; legacy administrative routes require operator scope when authenticated. See [research access](RESEARCH_INTEGRATION.md#install-and-connect).
 
 ## Bundle contract and versioning
 
@@ -90,7 +99,7 @@ A canonical SHA-256 covers public and private scenario content. Changing baselin
 
 Scenario tasks pin `scenario_version_id`. Registration and runtime reject an unrelated target, changed verifier rules, or changed attack channels. The runtime rechecks the stored content hash. Evidence exports retain scenario/version/family/split, content hash, and verifier version without copying private baseline data into the public scenario document. Verifier implementation changes must introduce a new supported verifier version before changing scenario rules; this phase supports `deterministic-v1` only.
 
-Reset restores a deep copy of the baseline, clears virtual session/persistent memory and business effects, clears verifier history and effect idempotency state, and replaces target conversation, local memory, and uploaded documents. Receipt history and inference spend remain available within the current episode. The reference target serializes reset and invocation. General distributed episode command ordering, recovery, and fencing belong to INF-04.
+Capsule-local reset restores a deep copy of the baseline, clears virtual session/persistent memory and business effects, clears verifier history and effect idempotency state, and replaces target conversation, local memory, and uploaded documents. Receipt history and inference spend remain available within that episode. The reference target serializes reset and invocation. The implemented [research session lifecycle](RESEARCH_INTEGRATION.md#sessions-operations-and-outcomes) adds distributed command ordering, recovery and fencing; a research `reset` creates a new episode and capsule while retaining earlier records.
 
 ## Model-driven validation and INF-02 boundary
 

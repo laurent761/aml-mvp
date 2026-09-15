@@ -22,6 +22,10 @@ Compose passes `TARGET_MODEL_*` only to the supervisor. The worker retains separ
 
 Set the operator-selected endpoint and model in your environment or `backend/.env`:
 
+For deployed model execution, use the complete `compose.yaml` profile. The separate
+`compose.research-smoke.yaml` fixes target inference to `disabled`; changing `.env`
+alone does not enable a model in that fixture profile.
+
 ```dotenv
 TARGET_MODEL_PROVIDER=local_openai_compatible
 TARGET_MODEL_BASE_URL=http://your-model-service:8000/v1/
@@ -56,7 +60,7 @@ From `backend/`, export a credential-free profile and render a model bundle with
 
 ```bash
 uv run adversarial-bundle build-reference --output var/bundles/finance-fixture.json
-uv run adversarial-bundle inference-profile --output var/bundles/target-inference-profile.json
+SERVICE_ROLE=capsule-supervisor uv run adversarial-bundle inference-profile --output var/bundles/target-inference-profile.json
 uv run adversarial-bundle reference \
   --image 'sha256:<actual-built-image-id>' \
   --inference-profile var/bundles/target-inference-profile.json \
@@ -70,7 +74,7 @@ Register using the existing [target bundle workflow](TARGET_BUNDLES.md). For dep
 
 ```bash
 docker build --target blue-gateway -t aml-inference-blue:local .
-OTEL_ENABLED=false uv run adversarial-bundle smoke var/bundles/finance-model.json \
+SERVICE_ROLE=capsule-supervisor OTEL_ENABLED=false uv run adversarial-bundle smoke var/bundles/finance-model.json \
   --docker --blue-image aml-inference-blue:local
 ```
 
@@ -106,7 +110,12 @@ Private audit records include episode/request correlation, request hash, profile
 
 The existing `ModelInvocation` and attribution tables store role `target`, stable invocation IDs, one campaign charge, episode links, and step links for completed actions. Episode API responses and evidence exports retain the credential-free audit. Private traces and credentials are not returned to the target. No schema migration is needed.
 
-Abrupt supervisor/host loss can interrupt in-memory inference before audit persistence. This phase does not claim durable provider transactions or provider-side cancellation; broader recovery and evidence guarantees remain separate infrastructure work. The external Firecracker runner is not implemented or validated by this Docker relay.
+Abrupt supervisor/host loss can interrupt in-memory inference before audit persistence.
+[Research recovery](RESEARCH_INTEGRATION.md#sessions-operations-and-outcomes) now
+retires interrupted sessions and preserves indeterminate commands. It does not make
+provider transactions durable, reconstruct missing provider usage or guarantee
+provider-side cancellation. The external Firecracker runner is not implemented or
+validated by this Docker relay.
 
 ## Validation
 

@@ -6,6 +6,9 @@ Run an opaque, potentially hostile agent artifact without allowing it to create 
 
 This threat model covers the Docker Compose research profile and the interface to a future audited Firecracker/KVM runner. It does not claim that Docker provides a hostile multi-tenant boundary equivalent to a microVM.
 
+Reviewed for the INF-01–INF-12 implementation. See [current status](../../PROJECT_STATUS.md)
+and [research access and operations](RESEARCH_INTEGRATION.md).
+
 ## Trust boundaries
 
 | Component | Trust level | Authority |
@@ -13,12 +16,15 @@ This threat model covers the Docker Compose research profile and the interface t
 | Target OCI image | Untrusted | Capsule-local compute and its synthetic inputs only |
 | Blue gateway | Trusted data plane | Evaluate policy and route effects to virtual state |
 | Capsule supervisor | Highly trusted control plane | Docker or remote-runner lifecycle operations |
+| Target inference broker | Trusted, supervisor-owned | Restricted target requests to the pinned model endpoint; provider credentials and usage reservations |
 | Campaign worker | Trusted orchestrator | Campaign state, public observations, reward, budgets |
+| Research worker / registered attacker runtime | Trusted execution owner / operator-approved external service | Durable commands and public-context generation; runtime weight identity is attested, not independently inspected |
 | Verifier | Trusted/private | Synthetic-world events and terminal evidence |
 | PostgreSQL | Trusted persistence | Operational state and immutable event metadata |
 | MinIO | Trusted persistence | Evidence and experiment artifacts |
 | MLflow and telemetry | Trusted metadata sinks | Sanitized metrics, versions, references, and traces |
-| Control API client | Authorized operator | Target, campaign, task, and policy management |
+| Research API client | Authenticated, owner-scoped researcher | Sessions, runs, datasets and artifacts subject to research/evaluation/evidence scopes |
+| Operator API client | Authorized operator | Target, runtime, suite, campaign, task and legacy policy administration |
 
 The Docker socket is equivalent to root-level control of the Docker host. Only the capsule-supervisor service receives it. The target, Blue gateway, worker, API, MLflow, and telemetry collector must never receive the socket.
 
@@ -46,6 +52,7 @@ Also assume a registered manifest may be malicious. Absolute target URLs must no
 - Read-only root filesystem, dropped capabilities, `no-new-privileges`, PID/memory/CPU/time budgets
 - Capsule-local target invocation and health paths only
 - Network path only to the episode Blue gateway
+- Target inference only through Blue's scoped mailbox and the supervisor broker; no generic outbound proxy
 - Image digest verification before launch
 - Deterministic teardown on every exit path
 
@@ -57,6 +64,8 @@ Also assume a registered manifest may be malicious. Absolute target URLs must no
 - `ALLOW_REAL` is rejected in capsule mode
 - Virtual services contain synthetic state only
 - Private verifier events are never included in attacker-model context
+- Inference and business-tool capabilities have separate scopes; provider credentials stay outside target and Blue
+- Intervention overlays affect declared public content only; trusted virtual effects and verifier events remain authoritative
 - Effect attempts, decisions, state events, and evidence retain campaign/episode/step lineage
 
 ### Control plane
@@ -69,7 +78,11 @@ Also assume a registered manifest may be malicious. Absolute target URLs must no
 - Supervisor-owned containers and networks are labeled by capsule, episode, and role
 - Supervisor startup removes labeled resources orphaned by a prior process crash
 - Runtime network-boundary checks are persisted as sanitized immutable episode evidence
-- Public API ingress is loopback-only by default; external exposure requires customer-managed authentication and TLS
+- Public API ingress is loopback-only by default; remote use requires configured application bearer authentication and deployment-managed TLS
+- `/v1/*` routes enforce bearer authentication when configured; legacy administration requires operator scope
+- Research records enforce ownership and scopes; admission uses atomic owner quota reservations
+- Production API startup requires research authentication; per-process rate limits need shared ingress enforcement when scaled
+- Uncertain in-flight research actions are marked indeterminate and retired, without automatic replay
 - Development signing keys are rejected outside development
 
 ### Persistence and telemetry
@@ -105,7 +118,10 @@ Before pilot use, independently validate:
 - Traffic and timing may reveal limited policy information even when verifier state is private.
 - Default local Compose credentials are public development values.
 - The included OpenTelemetry debug exporter is not durable storage.
-- Control API authentication and TLS are deployment responsibilities until implemented in the application.
+- Local development permits an implicit operator when authentication is disabled and no tokens are configured; remote deployments must enable the implemented bearer controls.
+- Token distribution/rotation, TLS, aggregate request-rate enforcement and external provider security remain deployment responsibilities.
+- Abrupt supervisor/host loss can interrupt in-memory inference before full audit persistence; durable research recovery cannot prove provider cancellation or reconstruct missing provider usage.
+- Stored checkpoint integrity does not prove a serving runtime loaded those weights; external training and GPU usage are reported by the researcher.
 
 ## Security release gates
 

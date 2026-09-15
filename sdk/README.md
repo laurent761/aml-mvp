@@ -2,6 +2,11 @@
 
 Install with `pip install ./sdk` from the repository root. Python 3.10+ is supported. This independent package imports no backend modules and needs only the research API URL and a bearer token.
 
+Start with the [root fixture runbook](../README.md) to build and register the supplied
+finance target. `catalog()` requires at least one registered bundle for the example
+below. The project supplies one controlled target with fixture/model modes; see
+[current scope and remaining acceptance work](../PROJECT_STATUS.md).
+
 ```python
 import asyncio
 import os
@@ -25,7 +30,7 @@ The protocol is `aml.research.v1`; the client sends its version on every request
 
 HTTP retries are bounded and preserve the original JSON and idempotency key. Reusing a key with different content fails. After reconnect, recover an operation rather than recomputing its step index. Failed streamed transfers can be retransmitted with the same upload key; this restarts the whole file. A transfer left active by a process crash must be cancelled or expire before restarting. Failed transfers cannot create checkpoints. Downloads verify SHA-256 before replacing their destination.
 
-`examples/workflows.py` demonstrates episodes, concurrency, export, external training lifecycle, checkpoints, runtime registration and evaluations. Set `AML_API_URL` and `AML_TOKEN`, then use `python examples/workflows.py episode`. Other workflows read their selected immutable IDs from environment variables shown in the source. Runtime registration requires operator scope. `fixture_runtime.py` is explicitly a contract fixture, not a learned attacker.
+`examples/workflows.py` demonstrates episodes, concurrency, export, external training lifecycle, checkpoints, runtime registration and evaluations. Set `AML_API_URL` and `AML_TOKEN`, then use `python sdk/examples/workflows.py episode` from the repository root. Other workflows read their selected immutable IDs from environment variables shown in the source. Runtime registration requires operator scope. `fixture_runtime.py` is explicitly a contract fixture, not a learned attacker.
 
 Your externally launched training script owns dependencies, hardware, training and restoration of optimizer/model state. The backend records lifecycle events, metrics, dataset references, checkpoints and resume lineage.
 

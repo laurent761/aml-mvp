@@ -3,11 +3,18 @@
 Date: 2026-09-10
 Scope: platform engineering and research integrations only.
 Evidence baseline: September 8 aml-mvp-full-codebase.zip, corrected source snapshot.
-Status: infrastructure implementation is now recorded in the INF implementation reports.
+Status: infrastructure implementation is now recorded in the [INF implementation reports](../../reports/README.md).
 See [research integration](RESEARCH_INTEGRATION.md) for the delivered APIs, SDK, deployment
 and validation workflow. Real-model acceptance remains a placeholder at the user's
 request, and training is externally launched. The requirements below are retained as
 the original acceptance specification; fixture runs do not satisfy real-model claims.
+
+For an inventory of the current source, use [project status](../../PROJECT_STATUS.md).
+One controlled finance reference target, its inference integration and INF-03–INF-12
+research infrastructure are implemented. The baseline gaps and proposed changes
+below describe the pre-implementation archive, not the current checkout. Additional
+target variants and real-model/held-out acceptance are still outstanding. The optional
+platform-launched training-job adapter was not selected; training runs externally.
 
 ## 1. The handoff you are building
 
@@ -25,7 +32,7 @@ Her computer, notebook, GPU machine, training framework, and model-serving proce
 
 You implement measurable forbidden-state predicates from the agreed scenario requirements. She cannot change benchmark ground truth merely by changing her training reward.
 
-## 2. What already exists
+## 2. Historical baseline: what existed in the September 8 archive
 
 These are source-level findings, not proof that the complete live deployment works.
 
@@ -42,7 +49,7 @@ These are source-level findings, not proof that the complete live deployment wor
 | MLflow and telemetry | telemetry.py | Keep; expose research-run integration |
 | Refactored AML UI and reproduction API | ui/, REPRODUCTION.md | Keep; add research read models and validate the latest integrated revision |
 
-Concrete gaps:
+Gaps in that archive (subsequently addressed by the INF implementation):
 - No runnable target agents are supplied in the archive.
 - The public API does not expose research sessions with externally driven step execution.
 - StepResult uses one done flag rather than distinct termination/truncation/error semantics.
@@ -261,7 +268,10 @@ Pass condition: an SDK-created run appears accurately in the UI, and a fresh dep
 
 ## 5. Proposed public API additions
 
-Names below are proposals, not endpoints already implemented. Reuse existing target/campaign/episode/finding/artifact reads where appropriate.
+This table preserves the original API proposals. Most are now implemented; use
+[research integration](RESEARCH_INTEGRATION.md) and the running API's `/openapi.json`
+for the delivered contracts. The SDK catalog is `/v1/research-catalog`.
+`/v1/research-jobs` is not implemented because training is externally launched.
 
 | Operation | Proposed surface |
 |---|---|
