@@ -2,10 +2,6 @@
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
 
-@utility scrollbar-thin { scrollbar-width: thin; }
-@utility scrollbar-none { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
-@utility scrollbar-gutter-stable { scrollbar-gutter: stable; }
-
 :root {
   --silver-white: #f8f8f6;
   --mist-gray: #f2f4f4;

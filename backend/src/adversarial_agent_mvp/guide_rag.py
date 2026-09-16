@@ -104,7 +104,7 @@ class GuideIndex:
                 score += idf * frequency * 2.5 / (frequency + 1.5 * (.25 + .75 * length / self.average_length))
             # Prefer explanatory sources for broad questions, retain code for exact symbols.
             path = chunk["references"][0]["path"]
-            boost = 1.35 if path == "architecture-guide.html" else 1.2 if path == "PROJECT_STATUS.md" else 1.1 if path.endswith(".md") and not path.startswith("reports/") else 1.0
+            boost = 1.35 if path == "architecture-guide.html" else 1.2 if path == "PROJECT_STATUS.md" else 1.1 if path.endswith(".md") else 1.0
             coverage = len(matched) / len(query)
             score *= boost * (.4 + .6 * coverage)
             if coverage >= .2:

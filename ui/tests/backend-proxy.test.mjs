@@ -1,21 +1,10 @@
 import assert from "node:assert/strict";
-import test, { after } from "node:test";
-import { fileURLToPath } from "node:url";
+import test from "node:test";
 
-import { createServer } from "vite";
 
-const root = fileURLToPath(new URL("..", import.meta.url));
-const vite = await createServer({
-  appType: "custom",
-  configFile: false,
-  root,
-  resolve: { alias: { "@": root } },
-  server: { middlewareMode: true },
-});
+import { createViteTestServer } from "./helpers.mjs";
 
-after(async () => {
-  await vite.close();
-});
+const vite = await createViteTestServer();
 
 const { isBackendPath, proxyBackendRequest, resolveBackendApiUrl } = await vite.ssrLoadModule(
   "/lib/backend-proxy.ts",

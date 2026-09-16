@@ -3,7 +3,7 @@
 Research sessions, runs, trajectories, datasets, checkpoints, evaluations and service
 health use the same records as the independent Python SDK. Open the connection dialog
 to supply a research token (kept in memory). See the backend's
-[research integration guide](../backend/docs/RESEARCH_INTEGRATION.md) for scope and deployment.
+[research integration guide](../backend/docs/michelle_archive/RESEARCH_INTEGRATION.md) for scope and deployment.
 Run `npm run typecheck` to generate local Cloudflare declarations and check all TypeScript,
 alongside the existing lint and test commands.
 
@@ -14,7 +14,7 @@ Operator console for the Adversarial Agent MVP backend. It covers the complete c
 The **Ask AML** view (`#/guide`) provides documentation search and cited answers
 inside this console. It requires operator scope because linked source documents
 contain private implementation details. Model settings stay on the backend; see
-[documentation assistant setup](../backend/docs/GUIDE_CHAT.md).
+[documentation assistant setup](../backend/docs/michelle_archive/GUIDE_CHAT.md).
 
 ## Run locally
 
@@ -54,10 +54,6 @@ The included Dockerfile builds the same Vinext application. In the integrated Co
 - API client error behavior;
 - proxy path/method/body forwarding, credential stripping, redirect blocking, and response-header filtering;
 - component accessibility semantics supplied by the UI primitives.
-
-The original UI correction was validated by compilation and automated tests. The later
-infrastructure acceptance run also exercised live backend records and the UI proxy;
-see the [dated validation report](../reports/INF-04_TO_INF-12_IMPLEMENTATION.md).
 
 ## Backend contract
 

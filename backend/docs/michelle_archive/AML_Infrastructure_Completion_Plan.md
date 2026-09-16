@@ -3,7 +3,7 @@
 Date: 2026-09-10
 Scope: platform engineering and research integrations only.
 Evidence baseline: September 8 aml-mvp-full-codebase.zip, corrected source snapshot.
-Status: infrastructure implementation is now recorded in the [INF implementation reports](../../reports/README.md).
+Status: infrastructure implementation is summarized in [project status](../../../PROJECT_STATUS.md).
 See [research integration](RESEARCH_INTEGRATION.md) for the delivered APIs, SDK, deployment
 and validation workflow. Real-model acceptance remains a placeholder at the user's
 request, and training is externally launched. The requirements below are retained as

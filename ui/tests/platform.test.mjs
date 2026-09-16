@@ -1,25 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import test, { after } from "node:test";
-import { fileURLToPath } from "node:url";
+import test from "node:test";
 
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createServer } from "vite";
 
-const root = fileURLToPath(new URL("..", import.meta.url));
-const vite = await createServer({
-  appType: "custom",
-  configFile: false,
-  root,
-  resolve: { alias: { "@": root } },
-  server: { middlewareMode: true },
-});
+import { createViteTestServer, root } from "./helpers.mjs";
 
-after(async () => {
-  await vite.close();
-});
+const vite = await createViteTestServer();
 
 test("renders the complete operator navigation and containment posture", async () => {
   const { default: ControlPlatform } = await vite.ssrLoadModule(

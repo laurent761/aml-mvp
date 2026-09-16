@@ -37,5 +37,5 @@ Your externally launched training script owns dependencies, hardware, training a
 `examples/acceptance.py` validates a deployed reference fixture through HTTP, including
 reset isolation, exact generations, exports, checkpoint round-trip, paired evaluation,
 fresh reproduction and the UI proxy. Follow the backend's
-[research deployment guide](../backend/docs/RESEARCH_INTEGRATION.md). Real-model
+[research deployment guide](../backend/docs/michelle_archive/RESEARCH_INTEGRATION.md). Real-model
 acceptance is deliberately left as a placeholder until your model configuration exists.

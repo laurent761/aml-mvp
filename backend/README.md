@@ -5,11 +5,11 @@ agent coverage, remaining acceptance work and the documentation map.
 
 Runnable Phase-0-to-MVP backend for black-box adversarial testing of agent systems. It contains the control plane, durable campaign queue, Red search infrastructure, trusted Blue boundary, stateful virtual services, deterministic verification, capsule supervision, replay, and evidence export. The complete platform bundle also includes the `ui/` operator console and wires it to this API through the Docker Compose profile.
 
-INF-01 includes one synthetic finance reference target, reusable target bundles, and a public scenario catalog. See [Target bundles](docs/TARGET_BUNDLES.md) for building an immutable image, registering its scenario, and testing benign behavior, a known verified consequence, and reset. [INF-02 target inference](docs/TARGET_INFERENCE.md) adds a supervisor-owned broker with pinned operator configuration, episode-scoped access, limits, and private usage accounting while preserving capsule isolation. [INF-03 intervention delivery](docs/INTERVENTION_DELIVERY.md) adds explicit message, document, and tool-response slots with verifiable delivery receipts. The development fixture is not a benchmark result; custom-model training remains separate work.
+INF-01 includes one synthetic finance reference target, reusable target bundles, and a public scenario catalog. See [Target bundles](docs/michelle_archive/TARGET_BUNDLES.md) for building an immutable image, registering its scenario, and testing benign behavior, a known verified consequence, and reset. [INF-02 target inference](docs/michelle_archive/TARGET_INFERENCE.md) adds a supervisor-owned broker with pinned operator configuration, episode-scoped access, limits, and private usage accounting while preserving capsule isolation. [INF-03 intervention delivery](docs/michelle_archive/INTERVENTION_DELIVERY.md) adds explicit message, document, and tool-response slots with verifiable delivery receipts. The development fixture is not a benchmark result; custom-model training remains separate work.
 
 ## Quick start
 
-INF-04–INF-12 adds the [research integration](docs/RESEARCH_INTEGRATION.md): durable
+INF-04–INF-12 adds the [research integration](docs/michelle_archive/RESEARCH_INTEGRATION.md): durable
 external/managed sessions, the independent [Python SDK](../sdk/README.md), immutable
 datasets/checkpoints, approved runtimes, executed evaluations, scoped access and UI
 research records. Training stays externally launched; real-model configuration remains
@@ -46,7 +46,7 @@ test -f .env || cp .env.example .env
 docker compose up --build
 ```
 
-The operator console is then available at `http://127.0.0.1:3000` and the API at `http://127.0.0.1:8000`. Review `.env` before starting. See [UI development](../ui/README.md) and [deployment](docs/DEPLOYMENT.md) for configuration details.
+The operator console is then available at `http://127.0.0.1:3000` and the API at `http://127.0.0.1:8000`. Review `.env` before starting. See [UI development](../ui/README.md) and [deployment](docs/michelle_archive/DEPLOYMENT.md) for configuration details.
 
 ## Validation
 

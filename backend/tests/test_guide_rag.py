@@ -11,7 +11,13 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr, ValidationError
 
 from adversarial_agent_mvp.guide_api import install_guide_api
-from adversarial_agent_mvp.guide_corpus import build_corpus, encode_corpus, html_sections, safe_link
+from adversarial_agent_mvp.guide_corpus import (
+    DEFAULT_CORPUS,
+    build_corpus,
+    encode_corpus,
+    html_sections,
+    safe_link,
+)
 from adversarial_agent_mvp.guide_rag import ChatQuestion, GuideError, GuideIndex, GuideService
 from adversarial_agent_mvp.research_auth import ResearchAuthMiddleware
 from adversarial_agent_mvp.settings import Settings
@@ -76,6 +82,11 @@ def test_retrieval_dedup_and_no_match(index):
 ])
 def test_packaged_corpus_core_topics(question, expected):
     assert any(ref["path"] == expected for source in GuideIndex().search(question) for ref in source["references"])
+
+
+def test_packaged_corpus_matches_current_sources():
+    root = Path(__file__).resolve().parents[2]
+    assert DEFAULT_CORPUS.read_bytes() == encode_corpus(build_corpus(root))
 
 
 async def test_generation_context_and_verified_quotes(index):

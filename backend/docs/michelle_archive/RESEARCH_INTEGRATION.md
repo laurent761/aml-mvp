@@ -253,4 +253,4 @@ Run regressions with `OTEL_ENABLED=false uv run pytest`, `uv run ruff check .`,
 `uv run pyright`, `uv build`, and the UI's `npm run lint`, `npm run typecheck`,
 `npm test`. Live gates require the disposable PostgreSQL URL and reference image
 settings documented in their test modules. The
-[INF-04–INF-12 report](../../reports/INF-04_TO_INF-12_IMPLEMENTATION.md) records the dated validation results.
+The project status document summarizes the dated validation results.

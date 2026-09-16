@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
-import test, { after } from "node:test";
-import { fileURLToPath } from "node:url";
-import { createServer } from "vite";
+import test from "node:test";
 
-const root = fileURLToPath(new URL("..", import.meta.url));
-const vite = await createServer({ appType: "custom", configFile: false, root, server: { middlewareMode: true } });
-after(() => vite.close());
+import { createViteTestServer } from "./helpers.mjs";
+
+const vite = await createViteTestServer();
 const { episodeOutcome, outcomeSummary, experimentResult, comparisonKey, budgetPercent } = await vite.ssrLoadModule("/lib/aml-insights.ts");
 const episode = (id, status, terminal_success = false, error = null, campaign_id = "campaign-a") => ({ episode_id: id, campaign_id, status, terminal_success, error });
 const campaign = { campaign_id: "campaign-a", target_version_id: "v1", attack_task_id: "task-a", policy_version_id: null, run_kind: "ATTACK", red_config_id: "config-a", search_mode: "adaptive", status: "COMPLETED", tokens_used: 500, cost_used: .01 };

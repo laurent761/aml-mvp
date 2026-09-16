@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
-import test, { after } from "node:test";
-import { fileURLToPath } from "node:url";
+import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createServer } from "vite";
 
-const root = fileURLToPath(new URL("..", import.meta.url));
-const vite = await createServer({ appType: "custom", configFile: false, root, resolve: { alias: { "@": root } }, server: { middlewareMode: true } });
-after(() => vite.close());
+import { createViteTestServer } from "./helpers.mjs";
+
+const vite = await createViteTestServer();
 const { ResearchSessionTable, ResearchTrajectory } = await vite.ssrLoadModule("/app/research-workspace.tsx");
 const { proxyBackendRequest } = await vite.ssrLoadModule("/lib/backend-proxy.ts");
 

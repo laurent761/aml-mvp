@@ -14,7 +14,7 @@ belong to that owner, have finished executing, and contain completed step action
 The worker replays those actions with the source bundle, policy, seed and limits in
 a fresh episode. Read `GET /v1/research-sessions/{session_id}/reproduction` for progress,
 success and observation divergence. Uncertain actions are not recovered by blindly
-resubmitting them. See [research integration](docs/RESEARCH_INTEGRATION.md) and the
+resubmitting them. See [research integration](docs/michelle_archive/RESEARCH_INTEGRATION.md) and the
 [SDK](../sdk/README.md) for recovery and evaluation contracts.
 
 ## Legacy findings and the operator UI

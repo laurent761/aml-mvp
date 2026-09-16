@@ -13,7 +13,7 @@ lifecycle. Installation and executable commands are maintained in this README.
 **Current scope:** one controlled Python finance reference agent is implemented,
 with scripted fixture and configurable model modes. A broader benchmark agent suite
 and real-model acceptance are still outstanding. See [project status and the full
-documentation map](PROJECT_STATUS.md); older MVP reports describe earlier snapshots.
+documentation map](PROJECT_STATUS.md).
 
 | Directory | Purpose |
 |---|---|
@@ -21,7 +21,6 @@ documentation map](PROJECT_STATUS.md); older MVP reports describe earlier snapsh
 | `backend/targets/reference/` | Reference target image definitions; source is in `backend/src/aml_reference_target/` |
 | `sdk/` | Independent `aml-research-sdk` package and executable examples |
 | `ui/` | Research console reading the same records as the SDK |
-| `reports/` | Dated implementation reports and validation evidence |
 
 Real target model, provider endpoint and credentials remain **placeholders**. The
 reference fixture works without a selected model. Training is **externally launched**:
@@ -31,7 +30,7 @@ the researcher supplies hardware, training code and checkpoint loading.
 
 Open **Ask AML** in the console to search the HTML guide and its linked documents.
 Generated answers use an OpenAI-compatible model and inspectable citations. See the
-[setup and index-refresh guide](backend/docs/GUIDE_CHAT.md); source search works
+[setup and index-refresh guide](backend/docs/michelle_archive/GUIDE_CHAT.md); source search works
 without a model key.
 
 ## Prerequisites
@@ -162,11 +161,11 @@ Default ports: UI **3000**, API **8000**, MinIO **9000/9001**, MLflow **5000**.
 This profile reads `.env`, not `var/research-smoke.env`, and has different volumes.
 Its default local configuration does not require research authentication. For SDK
 bearer access, configure `RESEARCH_AUTH_REQUIRED=true` and `RESEARCH_AUTH_TOKENS` as
-described in [research integration](backend/docs/RESEARCH_INTEGRATION.md).
+described in [research integration](backend/docs/michelle_archive/RESEARCH_INTEGRATION.md).
 
 Register a reference target with the build/copy/CLI sequence above, using ordinary
 `docker compose` without the research profile flags. Copying `.env.example` does not
-configure a real model. See [deployment](backend/docs/DEPLOYMENT.md) for remote access,
+configure a real model. See [deployment](backend/docs/michelle_archive/DEPLOYMENT.md) for remote access,
 credentials, backups and runtime requirements. Stop with `docker compose down`.
 
 ## Use your own research process
@@ -203,7 +202,7 @@ submitting the action again. The context manager maintains heartbeats and closes
 
 - **Target:** configure supervisor `TARGET_MODEL_*` settings, export its inference
   profile and register a model-mode bundle. The broker keeps credentials outside the
-  target. Follow [target inference](backend/docs/TARGET_INFERENCE.md).
+  target. Follow [target inference](backend/docs/michelle_archive/TARGET_INFERENCE.md).
 - **Attacker:** choose actions locally through the SDK or register an approved
   `aml.attacker.v1` HTTP runtime for managed Red. Its configuration is separate from
   the target model's configuration.
@@ -212,7 +211,7 @@ submitting the action again. The context manager maintains heartbeats and closes
 - **Evaluation:** freeze a suite and submit two checkpoint references with managed
   runtimes or externally controlled case sessions. Results come from executed episodes.
 
-See [research integration](backend/docs/RESEARCH_INTEGRATION.md) for APIs, scopes,
+See [research integration](backend/docs/michelle_archive/RESEARCH_INTEGRATION.md) for APIs, scopes,
 lineage, quotas, checkpoint manifests and reproduction contracts.
 
 ## Development and checks
@@ -244,9 +243,7 @@ npm test
 ```
 
 Live Docker/PostgreSQL/MinIO tests require explicit disposable-service settings;
-otherwise those gates skip. The last infrastructure run passed **317 backend tests**,
-**28 UI tests**, and **85.67% coverage**, including live gates. See [the dated report](reports/INF-04_TO_INF-12_IMPLEMENTATION.md).
-Those numbers are recorded validation, not live status for your installation.
+otherwise those gates skip. Use the commands above for results from your checkout.
 
 If first-time downloads fail, retry when network access is restored. `Dockerfile.cached`
 fallbacks require matching local dependency images; see the integration guide for their
@@ -265,6 +262,3 @@ requirements. They are not substitutes for portable clean builds.
 | 429 at admission | Check active sessions and owner cost/concurrency limits. |
 | Port already allocated | Check which Compose profile is running. |
 | Initializer says file exists | Reuse the generated files; it does not rotate credentials implicitly. |
-
-Historical reports and `SOURCE_SHA256SUMS.txt` describe their original revisions;
-they are not current checksums or a claim about a published site.

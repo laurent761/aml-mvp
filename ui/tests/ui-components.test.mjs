@@ -1,25 +1,14 @@
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import test, { after } from "node:test";
-import { fileURLToPath } from "node:url";
+import test from "node:test";
 
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createServer } from "vite";
 
-const root = fileURLToPath(new URL("..", import.meta.url));
-const vite = await createServer({
-  appType: "custom",
-  configFile: false,
-  root,
-  resolve: { alias: { "@": root } },
-  server: { middlewareMode: true },
-});
+import { createViteTestServer, root } from "./helpers.mjs";
 
-after(async () => {
-  await vite.close();
-});
+const vite = await createViteTestServer();
 
 async function readCssTree(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -35,17 +24,16 @@ async function readCssTree(directory) {
   return contents.join("\n");
 }
 
-test("emits the catalog's animation and scrolling utilities", async () => {
+test("emits application animations, scrolling, and reduced-motion styles", async () => {
   const css = await readCssTree(path.join(root, "dist"));
 
   assert.match(css, /--tw-enter-opacity/);
-  assert.match(css, /scrollbar-width:\s*thin/);
-  assert.match(css, /scrollbar-width:\s*none/);
-  assert.match(css, /scrollbar-gutter:\s*stable/);
-  assert.match(css, /scroll-fade-reveal-b/);
-  assert.match(css, /mask-image:/);
-  assert.match(css, /tw-shimmer/);
+  assert.match(css, /--tw-exit-opacity/);
+  assert.match(css, /@keyframes pulse/);
+  assert.match(css, /overflow-y:\s*auto/);
+  assert.match(css, /focus-visible/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(css, /animation-duration:\s*0?\.01ms\s*!important/);
 });
 
 test("forwards progress semantics to the primitive", async () => {

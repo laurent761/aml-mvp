@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
-import test, { after } from "node:test";
-import { fileURLToPath } from "node:url";
+import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createServer } from "vite";
 
-const root = fileURLToPath(new URL("..", import.meta.url));
-const vite = await createServer({ appType: "custom", configFile: false, root, resolve: { alias: { "@": root } }, server: { middlewareMode: true } });
-after(() => vite.close());
+import { createViteTestServer } from "./helpers.mjs";
+
+const vite = await createViteTestServer();
 const views = await vite.ssrLoadModule("/app/control-platform.tsx");
 const date = "2026-09-08T09:00:00Z";
 const campaign = { campaign_id: "campaign_source", target_version_id: "version_1", attack_task_id: "task_1", policy_version_id: "policy_1", search_mode: "adaptive", run_kind: "ATTACK", status: "COMPLETED", cancellation_requested: false, episodes_started: 2, tokens_used: 500, cost_used: .01, created_at: date };
