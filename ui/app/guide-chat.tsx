@@ -29,7 +29,6 @@ export default function GuideChat({ apiBase }: { apiBase: string }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<Source | null>(null);
-  const [sourcesOpen, setSourcesOpen] = useState(false);
   const pending = useRef<AbortController | null>(null);
   const nextId = useRef(1);
   const latest = useRef<HTMLDivElement | null>(null);
@@ -72,7 +71,7 @@ export default function GuideChat({ apiBase }: { apiBase: string }) {
     }
   }
   function submit(event: FormEvent) { event.preventDefault(); void ask(question, !status?.ready); }
-  function showSource(source: Source) { setSelected(source); setSourcesOpen(true); }
+  function showSource(source: Source) { setSelected(source); }
 
   return <section className="guide-chat" aria-label="AML documentation assistant">
     <div className="guide-chat-heading">
@@ -81,9 +80,9 @@ export default function GuideChat({ apiBase }: { apiBase: string }) {
     </div>
     {statusError ? <div className="guide-notice" role="alert"><p>{statusError}</p><Button variant="outline" onClick={() => setStatusRevision(value => value + 1)}>Retry connection</Button></div> : null}
     {status && !status.ready ? <div className="guide-notice" role="status"><strong>Search is ready. Answer generation needs a model key.</strong><p>{status.message}</p><Button variant="outline" size="sm" onClick={() => setStatusRevision(value => value + 1)}>Check configuration again</Button></div> : null}
-    <div className="guide-chat-layout">
+    <div className="guide-chat-layout" style={selected ? undefined : { gridTemplateColumns: "minmax(0, 1fr)" }}>
       <div className="surface guide-conversation">
-        <div className="guide-conversation-bar"><span>{status ? `${status.documents} documents · ${status.ready ? status.model : "source search"}` : "Connecting to documentation…"}</span><button onClick={() => setSourcesOpen(value => !value)} aria-expanded={sourcesOpen} aria-controls="guide-sources">Sources <ChevronRight size={14} aria-hidden="true" /></button></div>
+        <div className="guide-conversation-bar"><span>{status ? `${status.documents} documents · ${status.ready ? status.model : "source search"}` : "Connecting to documentation…"}</span></div>
         <div className="guide-messages" aria-busy={busy}>
           {!turns.length ? <div className="guide-empty"><BookOpenText size={30} aria-hidden="true" /><h3>Start with a question.</h3><p>Explore components, lifecycle boundaries, evidence and the research workflow.</p><div className="guide-suggestions">{suggested.map(text => <button key={text} disabled={!status || busy} onClick={() => void ask(text, !status?.ready)}>{text}<ChevronRight size={16} aria-hidden="true" /></button>)}</div></div> : null}
           {turns.map(turn => <article className="guide-turn" key={turn.id} aria-label={`Question: ${turn.question}`}>
@@ -105,10 +104,10 @@ export default function GuideChat({ apiBase }: { apiBase: string }) {
         </form>
         <p className="guide-chat-footnote">Documentation answers describe the indexed snapshot. They do not inspect live experiments. Conversations stay in this tab; submitted questions and retrieved passages go to the configured model.</p>
       </div>
-      <aside className={`surface guide-sources ${sourcesOpen ? "guide-sources--open" : ""}`} id="guide-sources" aria-label="Source evidence">
-        <div className="guide-source-heading"><h3>{selected ? "Source passage" : "Knowledge sources"}</h3>{selected ? <button onClick={() => setSelected(null)}>All sources</button> : null}</div>
-        {selected ? <><h4>{selected.references[0].heading}</h4><p className="guide-source-path">{selected.references[0].path} · {selected.references[0].anchor} · part {selected.references[0].part}</p><pre className="guide-source-text" tabIndex={0}>{selected.text}</pre><details><summary>Provenance</summary><p>Source SHA-256</p><code>{selected.references[0].sha256}</code><p>Chunk ID</p><code>{selected.id}</code>{selected.references.length > 1 ? <p>Also appears in {selected.references.slice(1).map(ref => ref.path).join(", ")}.</p> : null}</details></> : <><p>Architecture guide and directly linked repository files. Source passages include their headings and checksums.</p><div className="guide-source-list" tabIndex={0} aria-label="Indexed documents">{status?.sources.map(source => <div key={source.path}><BookOpenText size={14} aria-hidden="true" /><span>{source.path}</span></div>)}</div>{status ? <details><summary>Index details</summary><p>{status.chunks} deduplicated passages · {status.retrieval} retrieval</p><code>{status.corpus_sha256}</code></details> : null}</>}
-      </aside>
+      {selected ? <aside className="surface guide-sources guide-sources--open" aria-label="Source evidence">
+        <div className="guide-source-heading"><button onClick={() => setSelected(null)}>Close source</button></div>
+        <h4>{selected.references[0].heading}</h4><p className="guide-source-path">{selected.references[0].path} · {selected.references[0].anchor} · part {selected.references[0].part}</p><pre className="guide-source-text" tabIndex={0}>{selected.text}</pre><details><summary>Provenance</summary><p>Source SHA-256</p><code>{selected.references[0].sha256}</code><p>Chunk ID</p><code>{selected.id}</code>{selected.references.length > 1 ? <p>Also appears in {selected.references.slice(1).map(ref => ref.path).join(", ")}.</p> : null}</details>
+      </aside> : null}
     </div>
   </section>;
 }

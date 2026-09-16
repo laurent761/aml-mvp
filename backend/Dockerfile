@@ -6,6 +6,8 @@ FROM python:3.12.13-slim-bookworm AS runtime
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
+    UV_HTTP_TIMEOUT=300 \
+    UV_HTTP_RETRIES=5 \
     UV_LINK_MODE=copy \
     PATH="/app/.venv/bin:${PATH}"
 

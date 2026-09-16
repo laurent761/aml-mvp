@@ -37,8 +37,8 @@ cd backend
 # Review .env; on Linux, set DOCKER_GID to the Docker socket's group.
 docker compose up -d --build --wait
 uv run adversarial-bundle build-reference --output var/bundles/finance-reference.json
-docker compose cp var/bundles/finance-reference.json api:/tmp/reference.json
-docker compose exec -T api python -m adversarial_agent_mvp.bundle_cli register /tmp/reference.json
+docker compose exec -T api sh -c 'cat > /app/var/uploads/finance-reference.json' < var/bundles/finance-reference.json
+docker compose exec -T api python -m adversarial_agent_mvp.bundle_cli register /app/var/uploads/finance-reference.json
 ```
 
 Open the **UI at http://localhost:3000** or **API docs at http://localhost:8000/docs**.

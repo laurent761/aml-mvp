@@ -4,6 +4,7 @@ import {
   Activity,
   BookOpenText,
   Coins,
+  Compass,
   Cpu,
   LockKeyhole,
   ScanEye,
@@ -97,6 +98,8 @@ import {
 } from "@/lib/api-client";
 import ResearchWorkspace from "./research-workspace";
 import GuideChat from "./guide-chat";
+import QuickstartTour from "./quickstart-tour";
+import type { TourSelection } from "@/lib/quickstart";
 
 type JsonObject = Record<string, unknown>;
 type View =
@@ -110,6 +113,7 @@ type View =
   | "experiments"
   | "evidence"
   | "system"
+  | "tour"
   | "guide";
 
 interface Overview {
@@ -280,7 +284,8 @@ const emptyData: PlatformData = {
 };
 
 const navItems: { id: View; label: string; icon: typeof Gauge; group?: string }[] = [
-  { id: "guide", label: "Ask AML", icon: BookOpenText, group: "DOCUMENTATION" },
+  { id: "tour", label: "Quickstart tour", icon: Compass, group: "GET STARTED" },
+  { id: "guide", label: "Ask AML", icon: BookOpenText },
   { id: "overview", label: "Adversarial Overview", icon: Gauge, group: "WORKSPACE" },
   { id: "targets", label: "Targets", icon: Target },
   { id: "campaigns", label: "Attack Campaigns", icon: Activity },
@@ -402,6 +407,8 @@ export default function ControlPlatform() {
   const [versionOpen, setVersionOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false);
   const [campaignOpen, setCampaignOpen] = useState(false);
+  const [tourTargetsOpen, setTourTargetsOpen] = useState(false);
+  const [tourDraft, setTourDraft] = useState<TourSelection | null>(null);
   const [redConfigOpen, setRedConfigOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignRow | null>(null);
   const [trajectoryId, setTrajectoryId] = useState("");
@@ -484,23 +491,23 @@ export default function ControlPlatform() {
             <div><span>AML <span className="breadcrumb-slash">/</span> Research workspace</span><h1>{title}</h1></div>
           </div>
           <div className="topbar-actions">
-            {view !== "guide" ? <label className="global-search">
+            {view !== "guide" && view !== "tour" ? <label className="global-search">
               <Search aria-hidden="true" />
               <span className="sr-only">Filter current view</span>
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter this view" />
             </label> : null}
-            <button className={connected ? "health-chip health-chip--ok" : "health-chip"} onClick={() => setConnectionOpen(true)}>
+            <span className={connected ? "health-chip health-chip--ok" : "health-chip"}>
               <CircleDot aria-hidden="true" /><span>{connected ? "API ready" : "API offline"}</span>
-            </button>
+            </span>
             <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh data" disabled={loading}><RefreshCw className={loading ? "spin" : ""} /></Button>
-            <Button variant="ghost" size="icon" onClick={() => setConnectionOpen(true)} aria-label="Connection settings"><Settings2 /></Button>
           </div>
         </header>
 
         <main id="main-content" className="content" tabIndex={-1}>
-          {!connected && !loading ? <ConnectionBanner error={error} onOpen={() => setConnectionOpen(true)} /> : null}
+          {!connected && !loading ? <ConnectionBanner error={error} onOpen={() => navigate("system")} /> : null}
           {connected && error && !loading ? <DataWarning message={error} /> : null}
-          {view === "guide" ? <GuideChat key={`${apiBase}:${connectionRevision}`} apiBase={apiBase} /> : loading && !data.overview && !data.targets.length && !data.campaigns.length && !data.episodes.length ? <LoadingSurface /> : (
+          <div hidden={view !== "tour"}><QuickstartTour key={`${apiBase}:${connectionRevision}`} apiBase={apiBase} connected={connected} tasks={data.tasks} onRefresh={refresh} onNavigate={(next) => next === "targets" ? setTourTargetsOpen(true) : navigate(next)} onCampaign={(selection) => { setTourDraft(selection); setCampaignOpen(true); }} /></div>
+          {view === "tour" ? null : view === "guide" ? <GuideChat key={`${apiBase}:${connectionRevision}`} apiBase={apiBase} /> : loading && !data.overview && !data.targets.length && !data.campaigns.length && !data.episodes.length ? <LoadingSurface /> : (
             <>
               {["targets", "experiments", "lab", "trajectories", "learning", "evidence", "system"].includes(view) ? <ResearchWorkspace key={`${apiBase}:${connectionRevision}:${view}`} apiBase={apiBase} view={view} search={search} /> : null}
               {view === "overview" ? <OverviewView data={data} connected={connected} navigate={navigate} onTarget={() => setTargetOpen(true)} onCampaign={() => setCampaignOpen(true)} onSelectCampaign={setSelectedCampaign} onSelectFinding={setSelectedFinding} /> : null}
@@ -518,11 +525,18 @@ export default function ControlPlatform() {
         </main>
       </section>
 
+      <Sheet open={tourTargetsOpen} onOpenChange={setTourTargetsOpen}>
+        <SheetContent className="detail-sheet tour-targets-sheet">
+          <SheetHeader><SheetTitle>Targets · Quickstart</SheetTitle><SheetDescription>Inspect or register targets here. Your quickstart step and selections stay in place.</SheetDescription></SheetHeader>
+          <div className="sheet-scroll"><TargetsView data={data} search="" onTarget={() => setTargetOpen(true)} onVersion={() => setVersionOpen(true)} onTask={() => setTaskOpen(true)} onInspect={setInspection} /></div>
+          <div className="tour-panel-return"><Button onClick={() => setTourTargetsOpen(false)}>Return to quickstart</Button></div>
+        </SheetContent>
+      </Sheet>
       <ConnectionDialog open={connectionOpen} value={apiBase} onOpenChange={setConnectionOpen} onSave={saveApiBase} />
       <TargetDialog open={targetOpen} apiBase={apiBase} onOpenChange={setTargetOpen} onSuccess={refresh} />
       <VersionDialog open={versionOpen} apiBase={apiBase} targets={data.targets} onOpenChange={setVersionOpen} onSuccess={refresh} />
       <TaskDialog open={taskOpen} apiBase={apiBase} versions={data.versions} onOpenChange={setTaskOpen} onSuccess={refresh} />
-      <CampaignDialog open={campaignOpen} apiBase={apiBase} data={data} onOpenChange={setCampaignOpen} onSuccess={refresh} />
+      <CampaignDialog key={`${campaignOpen}:${tourDraft?.versionId ?? "default"}:${tourDraft?.taskId ?? "default"}`} initialSelection={tourDraft} open={campaignOpen} apiBase={apiBase} data={data} onOpenChange={(open) => { setCampaignOpen(open); if (!open) setTourDraft(null); }} onSuccess={(campaign) => { refresh(); navigate("campaigns"); setSelectedCampaign(campaign); }} />
       <RedConfigDialog open={redConfigOpen} apiBase={apiBase} onOpenChange={setRedConfigOpen} onSuccess={refresh} />
       <CampaignSheet key={selectedCampaign?.campaign_id ?? "campaign-closed"} campaign={selectedCampaign} apiBase={apiBase} onOpenChange={(open) => !open && setSelectedCampaign(null)} onChanged={refresh} />
       <FindingSheet key={selectedFinding?.finding_id ?? "finding-closed"} finding={selectedFinding} apiBase={apiBase} data={data} onTrajectory={openTrajectory} onOpenChange={(open) => !open && setSelectedFinding(null)} onChanged={refresh} />
@@ -537,7 +551,7 @@ function ConnectionBanner({ error, onOpen }: { error: string | null; onOpen: () 
     <section className="connection-banner" role="alert">
       <CircleAlert aria-hidden="true" />
       <div><strong>The control API is not reachable.</strong><p>{error ?? "Check the backend address and service readiness."}</p></div>
-      <Button variant="outline" onClick={onOpen}>Configure connection</Button>
+      <Button variant="outline" onClick={onOpen}>Open System settings</Button>
     </section>
   );
 }
@@ -651,6 +665,7 @@ export function OverviewView({ data, connected, navigate, onTarget, onCampaign, 
   ];
   return <div className="view-stack overview-workspace">
     <PageHeading title="Research overview" description="Campaigns, experiment outcomes, and verified findings." action={<><span className="overview-activity"><Activity aria-hidden="true" />{connected ? `${active.length} active` : "API offline"}</span><Button variant="outline" onClick={() => navigate("lab")}><Beaker />Attack lab</Button><Button onClick={onCampaign}><Plus />New campaign</Button></>} />
+    <div className="tour-entry"><Compass aria-hidden="true" /><div><strong>From target registration to your first campaign</strong><p>Follow the guided setup for a scripted fixture or a real model.</p></div><Button variant="outline" onClick={() => navigate("tour")}>Start tour<ArrowUpRight /></Button></div>
     <nav className="research-lifecycle" aria-label="Adversarial research lifecycle">{lifecycle.map(({ label, view, icon: Icon }) => <button key={label} onClick={() => navigate(view)}><span className="lifecycle-node"><Icon aria-hidden="true" /></span><strong>{label}</strong></button>)}</nav>
     <section className="ledger research-ledger" aria-label="Research totals">
       <Metric icon={FlaskConical} label="Loaded experiments" value={connected ? data.episodes.length : "—"} note={`${outcomes.success} terminal successes in loaded records`} />
@@ -890,11 +905,17 @@ function EvidenceView({ artifacts, apiBase, search, onInspect }: { artifacts: Ar
 function SystemView({ data, apiBase, connected, search, onConnection, onInspect }: { data: PlatformData; apiBase: string; connected: boolean; search: string; onConnection: () => void; onInspect: (inspection: Inspection) => void }) {
   const events = data.events.filter((row) => JSON.stringify(row).toLowerCase().includes(search.toLowerCase()));
   return <div className="view-stack">
-    <PageHeading title="System and audit" description="Control-plane readiness, immutable operational events, and integration endpoints." action={<Button variant="outline" onClick={onConnection}><Settings2 />Connection</Button>} />
+    <PageHeading title="System and audit" description="Control-plane readiness, immutable operational events, and integration endpoints." />
     <div className="system-grid">
       <section className="surface system-health"><div className="section-head"><div><h3>Service health</h3><p>Live checks from the configured control API.</p></div></div><div className="health-rows"><HealthRow label="Control API" value={connected ? "Ready" : "Unavailable"} good={connected} /><HealthRow label="Persistence" value={connected ? "Queryable" : "Unknown"} good={connected} /><HealthRow label="Artifact backend" value={connected ? `${data.artifacts.length} objects indexed` : "Unknown"} good={connected} /><HealthRow label="API origin" value={apiBase || "Same origin"} good={connected} /></div></section>
       <section className="surface audit-principles"><div className="section-head"><div><h3>Security invariants</h3><p>Operator-visible guarantees enforced by backend boundaries.</p></div></div><ul><li><CircleCheck />Workers have no Docker socket.</li><li><CircleCheck />Target side effects execute inside the controlled environment.</li><li><CircleCheck />Verifier state never enters Red model context.</li><li><CircleCheck />Artifacts are content-addressed and verified.</li></ul></section>
     </div>
+    <section className="surface">
+      <details className="raw-details complete-record">
+        <summary>Advanced settings</summary>
+        <div className="section-head"><div><h3>Control API connection</h3><p>Change the backend address or research access token. Most deployments connect automatically.</p></div><Button variant="outline" onClick={onConnection}><Settings2 />Connection settings</Button></div>
+      </details>
+    </section>
     <section className="surface event-stream">
       <div className="section-head"><div><h3>Operational event stream</h3><p>Newest append-only lifecycle events.</p></div><span className="section-meta">{events.length} shown</span></div>
       {events.length ? <div className="events">{events.map((event) => <button className="event-row event-row--button" key={event.event_id} onClick={() => onInspect({ title: event.event_type.replaceAll("_", " "), description: `${event.aggregate_type} · ${shortId(event.aggregate_id)}`, path: `/v1/operational-events/${event.event_id}` })}><span className="event-mark" /><time>{formatDate(event.created_at)}</time><span><strong>{event.event_type.replaceAll("_", " ")}</strong><small>{event.aggregate_type} · {shortId(event.aggregate_id)}</small></span><code>{shortId(event.event_id)}</code></button>)}</div> : <EmptyState icon={Activity} title="No operational events" copy="Lifecycle changes will appear after the first registered target or campaign." />}
@@ -1011,9 +1032,9 @@ function TaskDialog({ open, apiBase, versions, onOpenChange, onSuccess }: { open
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="dialog-wide"><DialogHeader><DialogTitle>Create attack task</DialogTitle><DialogDescription>Define the adversarial objective, deterministic forbidden state, and every campaign budget.</DialogDescription></DialogHeader><div className="form-stack"><Label htmlFor="task-version">Target version</Label><NativeSelect id="task-version" className="w-full" value={selectedVersionId} onChange={(event) => setVersionId(event.target.value)}><NativeSelectOption value="">Select a version</NativeSelectOption>{versions.map((version) => <NativeSelectOption key={version.target_version_id} value={version.target_version_id}>{shortId(version.target_version_id)} · {version.image}</NativeSelectOption>)}</NativeSelect><Label htmlFor="task-json">AttackTask JSON</Label><Textarea id="task-json" className="code-editor code-editor--tall" value={document} onChange={(event) => setDocument(event.target.value)} spellCheck={false} /></div><DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button onClick={submit} disabled={busy || !selectedVersionId}>{busy ? <RefreshCw className="spin" /> : <Plus />}{busy ? "Creating" : "Create task"}</Button></DialogFooter></DialogContent></Dialog>;
 }
 
-function CampaignDialog({ open, apiBase, data, onOpenChange, onSuccess }: { open: boolean; apiBase: string; data: PlatformData; onOpenChange: (open: boolean) => void; onSuccess: () => void }) {
-  const [versionId, setVersionId] = useState("");
-  const [taskId, setTaskId] = useState("");
+function CampaignDialog({ open, apiBase, data, initialSelection, onOpenChange, onSuccess }: { open: boolean; apiBase: string; data: PlatformData; initialSelection: TourSelection | null; onOpenChange: (open: boolean) => void; onSuccess: (campaign: CampaignRow) => void }) {
+  const [versionId, setVersionId] = useState(initialSelection?.versionId ?? "");
+  const [taskId, setTaskId] = useState(initialSelection?.taskId ?? "");
   const [mode, setMode] = useState("adaptive");
   const [configId, setConfigId] = useState("");
   const [budgetAcknowledged, setBudgetAcknowledged] = useState(false);
@@ -1032,7 +1053,7 @@ function CampaignDialog({ open, apiBase, data, onOpenChange, onSuccess }: { open
     try {
       const created = await apiRequest<CampaignRow>(apiBase, "/v1/campaigns", { method: "POST", body: JSON.stringify({ target_version_id: selectedVersionId, attack_task_id: selectedTaskId, search_mode: mode, red_config_id: configId || null, configuration: {} }) });
       toast.success(`Campaign ${shortId(created.campaign_id)} queued`);
-      setBudgetAcknowledged(false); onOpenChange(false); onSuccess();
+      setBudgetAcknowledged(false); onOpenChange(false); onSuccess(created);
     } catch (requestError) { toast.error(errorText(requestError)); } finally { setBusy(false); }
   };
   return <Dialog open={open} onOpenChange={close}><DialogContent className="dialog-wide"><DialogHeader><DialogTitle>Start campaign</DialogTitle><DialogDescription>The orchestrator enforces task budgets and gives every branch a fresh sealed episode.</DialogDescription></DialogHeader><div className="form-stack"><Label htmlFor="campaign-version">Target version</Label><NativeSelect id="campaign-version" className="w-full" value={selectedVersionId} onChange={(event) => { setVersionId(event.target.value); setTaskId(""); setBudgetAcknowledged(false); }}><NativeSelectOption value="">Select a version</NativeSelectOption>{data.versions.map((version) => <NativeSelectOption key={version.target_version_id} value={version.target_version_id}>{shortId(version.target_version_id)} · {version.image}</NativeSelectOption>)}</NativeSelect><Label htmlFor="campaign-task">Attack task</Label><NativeSelect id="campaign-task" className="w-full" value={selectedTaskId} onChange={(event) => { setTaskId(event.target.value); setBudgetAcknowledged(false); }}><NativeSelectOption value="">Select a task</NativeSelectOption>{tasks.map((task) => <NativeSelectOption key={task.attack_task_id} value={task.attack_task_id}>{shortId(task.attack_task_id)} · {String(task.document.objective ?? "Untitled objective")}</NativeSelectOption>)}</NativeSelect><div className="form-grid"><div><Label htmlFor="campaign-mode">Search mode</Label><NativeSelect id="campaign-mode" className="w-full" value={mode} onChange={(event) => setMode(event.target.value)}><NativeSelectOption value="adaptive">Adaptive beam</NativeSelectOption><NativeSelectOption value="linear">Linear baseline</NativeSelectOption></NativeSelect></div></div><Label htmlFor="campaign-red">Red experiment config</Label><NativeSelect id="campaign-red" className="w-full" value={configId} onChange={(event) => setConfigId(event.target.value)}><NativeSelectOption value="">Backend default</NativeSelectOption>{data.redConfigs.map((config) => <NativeSelectOption key={config.red_config_id} value={config.red_config_id}>{config.name}</NativeSelectOption>)}</NativeSelect>{budget ? <section className="budget-confirm" aria-label="Campaign budget envelope"><div><span>Episodes</span><strong>{String(budget.max_episodes ?? "—")}</strong></div><div><span>Steps / episode</span><strong>{String(budget.max_steps_per_episode ?? "—")}</strong></div><div><span>Model tokens</span><strong>{formatNumber(Number(budget.max_model_tokens ?? 0))}</strong></div><div><span>Cost ceiling</span><strong>{formatCost(Number(budget.max_total_cost ?? 0))}</strong></div><div><span>Wall time</span><strong>{String(budget.max_wall_time_seconds ?? "—")}s</strong></div><div><span>Concurrency</span><strong>{String(budget.max_concurrency ?? "—")}</strong></div></section> : null}<label className="budget-ack"><Checkbox checked={budgetAcknowledged} onCheckedChange={(value) => setBudgetAcknowledged(value === true)} /><span>I reviewed the complete task budget and want to queue this campaign.</span></label></div><DialogFooter><Button variant="outline" onClick={() => close(false)}>Cancel</Button><Button onClick={submit} disabled={busy || !selectedVersionId || !selectedTaskId || !budgetAcknowledged}>{busy ? <RefreshCw className="spin" /> : <Play />}{busy ? "Queuing" : "Queue campaign"}</Button></DialogFooter></DialogContent></Dialog>;

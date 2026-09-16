@@ -106,6 +106,6 @@ test("documentation composer waits for backend status before accepting questions
   const html = renderToStaticMarkup(React.createElement(GuideChat, { apiBase: "" }));
   assert.match(html, /Connecting to documentation/);
   assert.match(html, /textarea[^>]*disabled/);
-  assert.match(html, /Source evidence/);
+  assert.doesNotMatch(html, /Knowledge sources|Source evidence|Indexed documents|>Sources</);
   assert.doesNotMatch(html, /type="password"|sk-/);
 });
