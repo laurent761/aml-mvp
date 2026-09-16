@@ -1,39 +1,107 @@
 # AML — Adversarial Agent Research Platform
 
-AML is a laboratory for testing an agent through controlled interventions, verifying
-the resulting effects, and recording reproducible research data. Researchers choose
-actions through a Python SDK or let the Red runner call an approved attacker runtime.
-Business effects go to simulated services inside an isolated capsule.
+AML is a laboratory for testing agents through controlled interventions, verifying
+what happens, and recording reproducible research data. Use the web console or
+Python SDK to run experiments against an isolated target agent.
 
-**Open the [architecture and lifecycle guide](architecture-guide.html)** for CTOs,
-architects and data scientists. The offline page combines the component reference,
-system map, intervention walkthrough, recovery semantics and data-to-evaluation
-lifecycle. Installation and executable commands are maintained in this README.
+**Current scope:** one Python finance reference agent, with scripted fixture and
+configurable model modes. Real-model acceptance and broader benchmarks remain
+outstanding. Researchers supply model configuration, training code, hardware, and
+checkpoint loading.
 
-**Current scope:** one controlled Python finance reference agent is implemented,
-with scripted fixture and configurable model modes. A broader benchmark agent suite
-and real-model acceptance are still outstanding. See [project status and the full
-documentation map](PROJECT_STATUS.md).
+[Implementation](#current-implementation) · [Project layout](#project-layout) ·
+[First run](#first-run-authenticated-research-demo) ·
+[Full stack](#complete-stack-minio-mlflow-and-telemetry) ·
+[Python SDK](#use-your-own-research-process) ·
+[Models and training](#connect-models-and-external-training) ·
+[Development](#development-and-checks) · [Troubleshooting](#troubleshooting) ·
+[References](#references)
 
-| Directory | Purpose |
+For a visual walkthrough, open the [architecture and lifecycle guide](architecture-guide.html).
+
+## Current implementation
+
+The core workflow is **UI or SDK → API → worker → isolated target and Blue services
+→ verifier → stored results**. Blue controls business effects through simulated
+services; verifiers check whether an experiment reached a forbidden state.
+
+| Area | Implemented behavior |
 |---|---|
-| `backend/` | FastAPI, workers, capsule supervisor, Blue gateway, virtual services, verifiers, migrations and deployment |
-| `backend/targets/reference/` | Reference target image definitions; source is in `backend/src/aml_reference_target/` |
-| `sdk/` | Independent `aml-research-sdk` package and executable examples |
-| `ui/` | Research console reading the same records as the SDK |
+| Targets | Digest-pinned bundles, immutable scenario versions, private ground truth, and a public catalog. Registration alone does not validate an episode. |
+| Attacker (Red) | External SDK action loops or managed linear execution through an approved HTTP runtime. Campaign APIs also support linear/adaptive search. |
+| Execution | Isolated capsules, intervention delivery receipts, durable sessions, operation recovery, and scoped access with ownership and quotas. |
+| Research records | Separate public observations and verified outcomes; generation records, immutable datasets, streamed checkpoints, paired evaluations, and reproduction. |
+| Web console | Shared API records for sessions, runs, trajectories, findings, datasets, checkpoints, evaluations, and health, refreshed through HTTP polling. |
 
-Real target model, provider endpoint and credentials remain **placeholders**. The
-reference fixture works without a selected model. Training is **externally launched**:
-the researcher supplies hardware, training code and checkpoint loading.
+### Finance reference agent
 
-## Documentation assistant
+The [reference agent](backend/src/aml_reference_target/agent.py) uses scenario
+`finance-invoice-summary` **1.1.0**, in the `finance-operations` family and
+`development` split. Its legitimate task reads an invoice and customer record,
+writes a session note, and emails a summary to `finance@internal.test` without
+personal identifiers. It supports bounded model/tool execution, declared tool
+allowlists, health/invoke/reset endpoints, and message, document, and tool-response
+interventions.
 
-Open **Ask AML** in the console to search the HTML guide and its linked documents.
-Generated answers use an OpenAI-compatible model and inspectable citations. See the
-[setup and index-refresh guide](backend/docs/michelle_archive/GUIDE_CHAT.md); source search works
-without a model key.
+| Mode | Purpose | Requirements |
+|---|---|---|
+| `fixture` | Scripted benign behavior, a known synthetic forbidden consequence, and reset checks | Default reference build; no model configuration |
+| `model` | The same agent driven by a model through the supervisor-owned inference broker | Operator-supplied provider, model, credentials, and inference profile |
 
-## Prerequisites
+These are two modes of one agent. Fixture checks demonstrate integration; they do
+not establish real-model performance or benchmark generalization. Target inference
+is disabled until configured. See [target bundles](backend/docs/michelle_archive/TARGET_BUNDLES.md)
+and [target inference](backend/docs/michelle_archive/TARGET_INFERENCE.md) for details.
+
+### Lifecycle and outcome semantics
+
+- Research reset creates a **new episode and capsule**, retaining prior trajectories.
+  Within a capsule, reset clears business state but retains inference history and spend.
+- An action with uncertain effects becomes `indeterminate`; its episode is retired.
+  Recover recorded operations after a disconnect rather than resubmitting an action.
+- “Verified Exploits” are verifier-backed findings. Reproduction is a separate result.
+  The UI excludes defensive hardening and policy administration; their backend APIs remain.
+- Training runs externally. AML records metadata and artifacts; it does not train
+  weights or independently verify which weights a serving runtime has loaded.
+
+### Remaining acceptance work
+
+- Configure a real target model and run the model-mode smoke with recorded provenance.
+- Add controlled targets and frozen benchmark cases; execute matched comparisons
+  before claiming learning improvements.
+- Supply trained checkpoints and verify loading in the serving runtime.
+- Verify clean dependency and image builds without cached fallbacks.
+- Supply and validate a Firecracker/KVM runner if required; only its integration
+  interface is present.
+
+Use [development and checks](#development-and-checks) for results from your checkout.
+Deployment health and model behavior require their own execution evidence.
+
+## Project layout
+
+| Path | Responsibility |
+|---|---|
+| `backend/src/adversarial_agent_mvp/` | API, workers, Red, Blue, capsule management, storage, verifiers, and Ask AML |
+| `backend/src/aml_reference_target/` | Finance reference agent |
+| `backend/src/aml_target_protocol/` | Shared target and intervention contracts |
+| `backend/targets/reference/` | Reference target Dockerfiles |
+| `backend/migrations/` | Database schema migrations |
+| `backend/tests/` | Unit, integration, containment, and live infrastructure checks |
+| `backend/scripts/` | Research setup and validation utilities |
+| `backend/compose*.yaml` | Local service orchestration |
+| `backend/docs/michelle_archive/` | Preserved specifications and operational references |
+| `sdk/src/aml_research/` / `sdk/examples/` | Independent Python client and research workflows |
+| `ui/app/` / `ui/components/` | Web console and reusable interface components |
+| `ui/lib/` / `ui/worker/` | API client, research calculations, and backend proxy |
+| `ui/tests/` | Interface, rendering, and proxy checks |
+
+## First run: authenticated research demo
+
+This profile starts PostgreSQL, API, worker, supervisor and UI with generated
+credentials, separate volumes and loopback ports. Start at the repository root;
+the build step enters `backend/`, where the remaining demo commands run.
+
+### Prerequisites
 
 - Running Docker Engine or Docker Desktop, with Docker Compose v2.
 - Python 3.12+ and `uv` for backend commands. The independent SDK supports Python 3.10+.
@@ -45,12 +113,6 @@ Use one active AML capsule supervisor per Docker endpoint. Startup reconciliatio
 the AML-labelled capsules on that endpoint. If the main stack is already running,
 stop it with `docker compose down` from `backend/` before starting the separate profile
 below. Its named data volumes are preserved.
-
-## First run: authenticated research demo
-
-This profile starts PostgreSQL, API, worker, supervisor and UI with generated
-credentials, separate volumes and loopback ports. Start at the repository root;
-the build step enters `backend/`, where the remaining demo commands run.
 
 ### 1. Install and build
 
@@ -64,7 +126,7 @@ docker build --target blue-gateway -t blue-gateway:local .
 docker build -t adversarial-ui:local ../ui
 ```
 
-Run the first command from the repository root. Backend images share cached build layers.
+Backend images share cached build layers.
 On Linux, check `stat -c '%g' /var/run/docker.sock` and set `DOCKER_GID` to that group
 before starting Compose if it differs from the default `0`.
 
@@ -91,8 +153,8 @@ In the UI connection dialog, use the same-origin proxy and paste the `token` val
 from `var/research-smoke.client.json`. It stays in browser memory. This demo token has
 operator permissions for onboarding and suite registration.
 
-This acceptance profile fixes target inference to `disabled`. Use the complete stack
-and the target-inference guide below for real-model configuration.
+This profile fixes target inference to `disabled`. For model configuration, use the
+[complete stack](#complete-stack-minio-mlflow-and-telemetry).
 
 ### 3. Build and register a target
 
@@ -147,7 +209,8 @@ discard the demo; saved record IDs will no longer resolve afterward.
 
 ## Complete stack: MinIO, MLflow and telemetry
 
-Use this instead of the research profile when you want the full local stack:
+For MinIO, MLflow, telemetry, or configurable target inference, use this profile.
+Start from the repository root in a fresh terminal:
 
 ```bash
 cd backend
@@ -170,8 +233,9 @@ credentials, backups and runtime requirements. Stop with `docker compose down`.
 
 ## Use your own research process
 
-Install `./sdk` into your Python environment. Set `AML_API_URL` and `AML_TOKEN` for
-an authenticated deployment, then run:
+Install with `pip install ./sdk` from the repository root (Python 3.10+). Set
+`AML_API_URL` and `AML_TOKEN` for an authenticated deployment with a registered
+bundle, then run:
 
 ```python
 import asyncio
@@ -194,9 +258,10 @@ async def main():
 asyncio.run(main())
 ```
 
-Keep session and operation IDs to recover completed results after a disconnect.
-`IndeterminateOperation` means effects are uncertain; retire that episode instead of
-submitting the action again. The context manager maintains heartbeats and closes it.
+Keep session and operation IDs for recovery. `IndeterminateOperation` signals an
+uncertain side effect; do not resubmit it. The session context manager maintains
+heartbeats and closes the session. See the [SDK README](sdk/README.md) for recovery
+and transfer behavior.
 
 ## Connect models and external training
 
@@ -214,9 +279,19 @@ submitting the action again. The context manager maintains heartbeats and closes
 See [research integration](backend/docs/michelle_archive/RESEARCH_INTEGRATION.md) for APIs, scopes,
 lineage, quotas, checkpoint manifests and reproduction contracts.
 
+## Documentation assistant
+
+Open **Ask AML** in the console to search the guide and linked documents. Search
+works without a model key; generated answers require a backend-configured
+OpenAI-compatible model and include inspectable citations. Duplicate passages are
+merged while preserving source references. This service is separate from target
+inference and attacker training. See the [setup guide](backend/docs/michelle_archive/GUIDE_CHAT.md).
+
 ## Development and checks
 
-UI development against the running research API:
+### Local development
+
+From the repository root, start UI development against the running research API:
 
 ```bash
 cd ui
@@ -229,17 +304,26 @@ process, follow the environment overrides in the [backend quick start](backend/R
 Episodes additionally need the worker and a configured supervisor.
 A database hostname such as `postgres` in `.env` is a Compose service name, not a host URL.
 
-```bash
-# From backend/
-OTEL_ENABLED=false uv run pytest
-uv run ruff check .
-uv run pyright
-uv build
+### Validation
 
-# From ui/
-npm run lint
-npm run typecheck
-npm test
+Run each block from the repository root.
+
+Backend tests, lint, type checks, and packaging:
+
+```bash
+(cd backend && OTEL_ENABLED=false uv run pytest && uv run ruff check . && uv run pyright && uv build)
+```
+
+UI lint, type checks, production build, and tests:
+
+```bash
+(cd ui && npm run lint && npm run typecheck && npm test)
+```
+
+SDK packaging:
+
+```bash
+uv build sdk
 ```
 
 Live Docker/PostgreSQL/MinIO tests require explicit disposable-service settings;
@@ -248,6 +332,17 @@ otherwise those gates skip. Use the commands above for results from your checkou
 If first-time downloads fail, retry when network access is restored. `Dockerfile.cached`
 fallbacks require matching local dependency images; see the integration guide for their
 requirements. They are not substitutes for portable clean builds.
+
+### Refresh Ask AML documentation
+
+After changing this README, the HTML guide, or its indexed references, rebuild the
+packaged search index and check that it matches the sources:
+
+```bash
+(cd backend && uv run adversarial-guide --repo .. && uv run adversarial-guide --repo .. --check)
+```
+
+Restart the API to load the new index. For containers, rebuild the API image first.
 
 ## Troubleshooting
 
@@ -262,3 +357,26 @@ requirements. They are not substitutes for portable clean builds.
 | 429 at admission | Check active sessions and owner cost/concurrency limits. |
 | Port already allocated | Check which Compose profile is running. |
 | Initializer says file exists | Reuse the generated files; it does not rotate credentials implicitly. |
+
+## References
+
+| Document | Purpose |
+|---|---|
+| [Interactive guide](architecture-guide.html) | Offline architecture and illustrative episode walkthrough |
+| [Backend README](backend/README.md) | Backend development and validation entry points |
+| [Target bundles](backend/docs/michelle_archive/TARGET_BUNDLES.md) | Reference agent, scenario packaging, registration and reset semantics |
+| [Target inference](backend/docs/michelle_archive/TARGET_INFERENCE.md) | Model connection, credential ownership, limits and model-mode smoke |
+| [Intervention delivery](backend/docs/michelle_archive/INTERVENTION_DELIVERY.md) | Supported payloads, slots, receipts and target integration |
+| [Research integration](backend/docs/michelle_archive/RESEARCH_INTEGRATION.md) | Sessions, auth, lineage, transfers, runtimes, evaluations and operations |
+| [Deployment](backend/docs/michelle_archive/DEPLOYMENT.md) | Compose services, persistence, credentials and external runner interface |
+| [Threat model](backend/docs/michelle_archive/THREAT_MODEL.md) | Current trust boundaries and residual risks |
+| [Ask AML setup](backend/docs/michelle_archive/GUIDE_CHAT.md) | Documentation search, model configuration, and index refresh |
+| [Controlled-agent details](backend/docs/michelle_archive/CONTROLLED_AGENTS_HANDOFF_PROMPT.md) | Target tool loop, intervention surfaces, and state ownership |
+| [Reproduction](backend/REPRODUCTION.md) | Research replay and legacy reproduction-only contracts |
+| [SDK README](sdk/README.md) | Client installation, recovery semantics and executable examples |
+| [UI README](ui/README.md) / [Product](ui/PRODUCT.md) | UI operation and product semantics |
+| [Infrastructure plan](backend/docs/michelle_archive/AML_Infrastructure_Completion_Plan.md) | Original acceptance specification; baseline gaps are historical |
+
+Specifications and detailed operational references remain in `michelle_archive`.
+The generated UI design snapshots in `ui/.21st/` describe the visual design, not
+implementation status. Vendored styles retain their upstream license.

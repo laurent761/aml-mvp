@@ -5,7 +5,7 @@ This phase implements the reference target and catalog described in `AML_Infrast
 The repository supplies **one custom Python controlled target**, with `fixture` and
 `model` execution modes using the same agent loop. It does not yet supply the multiple
 framework targets or held-out variants proposed in the atlas. See
-[current implementation status](../../PROJECT_STATUS.md).
+[current implementation status](../../../README.md#current-implementation).
 
 ## Reference workflow
 

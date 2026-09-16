@@ -78,7 +78,7 @@ def test_retrieval_dedup_and_no_match(index):
     ("How do Red and Blue work together?", "architecture-guide.html"),
     ("What survives a reset?", "architecture-guide.html"),
     ("How do datasets checkpoints and paired evaluations connect?", "architecture-guide.html"),
-    ("What still needs real model acceptance?", "PROJECT_STATUS.md"),
+    ("What still needs real model acceptance?", "README.md"),
 ])
 def test_packaged_corpus_core_topics(question, expected):
     assert any(ref["path"] == expected for source in GuideIndex().search(question) for ref in source["references"])

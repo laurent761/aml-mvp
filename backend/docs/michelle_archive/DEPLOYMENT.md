@@ -1,7 +1,7 @@
 # Deployment Guide
 
 Commands in this guide run from `backend/`. For the separate authenticated fixture
-demo, use the [root runbook](../../README.md). See [project status](../../PROJECT_STATUS.md)
+demo, use the [root runbook](../../README.md). See [project status](../../../README.md#current-implementation)
 for the distinction between implemented controls and recorded validation.
 
 This guide describes the single-node Docker Compose profile used for internal research and design-partner evaluation. It packages the operator UI, control API, campaign worker, capsule supervisor, Blue gateway image, PostgreSQL, MinIO, MLflow, and an OpenTelemetry collector.

@@ -5,7 +5,7 @@ Install with `pip install ./sdk` from the repository root. Python 3.10+ is suppo
 Start with the [root fixture runbook](../README.md) to build and register the supplied
 finance target. `catalog()` requires at least one registered bundle for the example
 below. The project supplies one controlled target with fixture/model modes; see
-[current scope and remaining acceptance work](../PROJECT_STATUS.md).
+[current scope and remaining acceptance work](../README.md#current-implementation).
 
 ```python
 import asyncio

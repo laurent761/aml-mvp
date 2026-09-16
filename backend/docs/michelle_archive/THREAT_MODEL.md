@@ -6,7 +6,7 @@ Run an opaque, potentially hostile agent artifact without allowing it to create 
 
 This threat model covers the Docker Compose research profile and the interface to a future audited Firecracker/KVM runner. It does not claim that Docker provides a hostile multi-tenant boundary equivalent to a microVM.
 
-Reviewed for the INF-01–INF-12 implementation. See [current status](../../PROJECT_STATUS.md)
+Reviewed for the INF-01–INF-12 implementation. See [current status](../../../README.md#current-implementation)
 and [research access and operations](RESEARCH_INTEGRATION.md).
 
 ## Trust boundaries

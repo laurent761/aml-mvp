@@ -5,7 +5,7 @@ managed Red sessions, immutable data exports, external training metadata, checkp
 approved model runtimes, paired evaluations and fresh reproduction. The current UI
 reads these same records in its existing navigation.
 
-See [current project status](../../PROJECT_STATUS.md) for controlled-agent coverage
+See [current project status](../../../README.md#current-implementation) for controlled-agent coverage
 and the documentation map. The shipped target is one finance reference agent with
 fixture/model modes; benchmark registration does not supply additional target agents.
 

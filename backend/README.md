@@ -1,6 +1,6 @@
 # Adversarial Agent MVP Backend
 
-See [current project status](../PROJECT_STATUS.md) for delivered scope, controlled
+See [current project status](../README.md#current-implementation) for delivered scope, controlled
 agent coverage, remaining acceptance work and the documentation map.
 
 Runnable Phase-0-to-MVP backend for black-box adversarial testing of agent systems. It contains the control plane, durable campaign queue, Red search infrastructure, trusted Blue boundary, stateful virtual services, deterministic verification, capsule supervision, replay, and evidence export. The complete platform bundle also includes the `ui/` operator console and wires it to this API through the Docker Compose profile.

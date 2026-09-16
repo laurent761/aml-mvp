@@ -3,13 +3,13 @@
 Date: 2026-09-10
 Scope: platform engineering and research integrations only.
 Evidence baseline: September 8 aml-mvp-full-codebase.zip, corrected source snapshot.
-Status: infrastructure implementation is summarized in [project status](../../../PROJECT_STATUS.md).
+Status: infrastructure implementation is summarized in [project status](../../../README.md#current-implementation).
 See [research integration](RESEARCH_INTEGRATION.md) for the delivered APIs, SDK, deployment
 and validation workflow. Real-model acceptance remains a placeholder at the user's
 request, and training is externally launched. The requirements below are retained as
 the original acceptance specification; fixture runs do not satisfy real-model claims.
 
-For an inventory of the current source, use [project status](../../PROJECT_STATUS.md).
+For an inventory of the current source, use [project status](../../../README.md#current-implementation).
 One controlled finance reference target, its inference integration and INF-03–INF-12
 research infrastructure are implemented. The baseline gaps and proposed changes
 below describe the pre-implementation archive, not the current checkout. Additional

@@ -210,4 +210,4 @@ Paths are relative to the repository root:
 | `backend/tests/containment/test_intervention_boundary.py` | Intervention boundary tests |
 | `backend/tests/live/test_target_inference_docker.py` | Scripted-provider Docker model-mode checks |
 
-Read `PROJECT_STATUS.md`, `README.md`, and `backend/docs/{TARGET_BUNDLES,TARGET_INFERENCE,INTERVENTION_DELIVERY,RESEARCH_INTEGRATION}.md` for operational details. Treat the mental-model atlas and original infrastructure plan as design context where they exceed the current source.
+Read `README.md`, and `backend/docs/{TARGET_BUNDLES,TARGET_INFERENCE,INTERVENTION_DELIVERY,RESEARCH_INTEGRATION}.md` for operational details. Treat the mental-model atlas and original infrastructure plan as design context where they exceed the current source.

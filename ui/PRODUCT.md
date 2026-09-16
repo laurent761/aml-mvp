@@ -24,7 +24,7 @@ records, delivery receipts, datasets, checkpoints, paired evaluations and compon
 health. Views use authenticated HTTP polling and retain explicit owner/scope limits.
 Training is externally launched; the UI inspects its records rather than configuring
 the trainer. The shipped controlled target is one finance reference agent; see
-[project status](../PROJECT_STATUS.md) for coverage and validation limits.
+[project status](../README.md#current-implementation) for coverage and validation limits.
 
 Verified exploits are deterministic finding records, not deduplicated vulnerabilities or automatically confirmed reproductions. Exact replay confirmation requires the same target version, task, original runtime conditions, and verifier. Strategy memory reports historical outcomes, not model weight training or proven learning uplift. Experiment comparisons are descriptive and use loaded records with explicit denominators; incomplete or interrupted episodes are excluded.
 
