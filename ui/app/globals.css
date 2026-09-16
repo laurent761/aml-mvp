@@ -918,6 +918,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .guide-quotes blockquote { margin: 8px 0; padding: 4px 12px; border-left: 2px solid var(--hairline); white-space: pre-wrap; overflow-wrap: anywhere; }
 
-.tour-targets-sheet { width: min(72rem, 96vw) !important; }
-.tour-targets-sheet .page-heading { flex-wrap: wrap; }
-.tour-panel-return { padding: 1rem; border-top: 1px solid var(--border); }
+.tour-registration-status { display: flex; align-items: flex-start; gap: .75rem; padding: 1rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--muted); }
+.tour-registration-status > svg { width: 1.125rem; height: 1.125rem; flex-shrink: 0; margin-top: .2rem; }
+.tour-registration-status > div { flex: 1; min-width: 0; }
+.tour-registration-status strong { font-size: 1rem; }
+.tour-registration-status p { margin: .25rem 0 0; font-size: .875rem; }
+.tour-registration-instructions > p, .tour-registration-instructions > .tour-command, .tour-registration-instructions > .tour-note, .tour-registration-instructions > .tour-details { margin-top: 1rem; }
+@media (max-width: 560px) { .tour-registration-status { flex-wrap: wrap; } .tour-registration-status > div { flex-basis: calc(100% - 2rem); } }

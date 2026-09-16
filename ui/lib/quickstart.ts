@@ -43,3 +43,12 @@ export function tourSelection(bundles: TourBundle[], tasks: TourTask[], mode: To
   const task = tasks.find(row => row.attack_task_id === taskId && row.target_version_id === bundle?.target_version_id);
   return bundle && task ? { versionId: bundle.target_version_id, taskId: task.attack_task_id } : null;
 }
+
+/** Preselect only unambiguous registrations; retain explicit choices for validation. */
+export function tourDefaults(bundles: TourBundle[], tasks: TourTask[], mode: TourMode, selectedVersion = "", selectedTask = ""): TourSelection {
+  const matching = bundles.filter(row => row.execution_mode === mode);
+  const versionId = selectedVersion || (matching.length === 1 ? matching[0].target_version_id : "");
+  const validVersion = matching.some(row => row.target_version_id === versionId);
+  const matchingTasks = validVersion ? tasks.filter(row => row.target_version_id === versionId) : [];
+  return { versionId, taskId: selectedTask || (matchingTasks.length === 1 ? matchingTasks[0].attack_task_id : "") };
+}

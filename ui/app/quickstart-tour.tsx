@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { apiRequest, formatCost, shortId } from "@/lib/api-client";
-import { modelEnvironment, registrationCommands, tourSelection, tourSteps, type TourBundle, type TourMode, type TourSelection, type TourTask } from "@/lib/quickstart";
+import { modelEnvironment, registrationCommands, tourDefaults, tourSelection, tourSteps, type TourBundle, type TourMode, type TourSelection, type TourTask } from "@/lib/quickstart";
 
 type TourView = "targets" | "campaigns" | "experiments" | "lab" | "trajectories" | "findings" | "system";
 type Props = {
@@ -37,11 +37,26 @@ export function TourBudget({ task }: { task: TourTask }) {
   ].map(([label, value]) => <div key={String(label)}><dt>{String(label)}</dt><dd>{String(value ?? "—")}</dd></div>)}</dl>;
 }
 
+export function TourRegistrationCheck({ mode, bundles, task, taskCount, bundle, connected, loading, error, onRefresh }: {
+  mode: TourMode; bundles: TourBundle[]; bundle?: TourBundle; task?: TourTask; taskCount: number;
+  connected: boolean; loading: boolean; error: string; onRefresh: () => void;
+}) {
+  const label = mode === "fixture" ? "Scripted fixture" : "Real model";
+  const ready = connected && !loading && !error && Boolean(bundle && task);
+  const title = !connected ? "API not connected" : loading ? "Checking registration…" : error ? "Could not check registration" : !bundles.length ? `${label} not registered yet` : bundle && taskCount === 0 ? "Registration needs an attack task" : ready ? `${label} registered` : `${label} registrations found`;
+  const description = !connected ? "Connect the API in System settings, then refresh." : loading ? "Checking the agent type you chose." : error ? "Refresh to try again." : !bundles.length || (bundle && taskCount === 0) ? "Use the instructions below, then refresh." : ready ? `${bundle?.scenario.name}. Your version and task are selected for review.` : "Choose the version and task you registered in the next step.";
+  return <div className="tour-registration-status" role="status">
+    {ready ? <CircleCheck aria-hidden="true" /> : <CircleAlert aria-hidden="true" />}
+    <div><strong>{title}</strong><p>{description}</p></div>
+    <Button variant="ghost" size="sm" disabled={loading} onClick={onRefresh}><RefreshCw className={loading ? "spin" : ""} />Refresh</Button>
+  </div>;
+}
+
 export default function QuickstartTour({ apiBase, connected, tasks, onRefresh, onNavigate, onCampaign }: Props) {
   const [step, setStep] = useState(0);
   const [mode, setMode] = useState<TourMode>("model");
-  const [versionId, setVersionId] = useState("");
-  const [taskId, setTaskId] = useState("");
+  const [selectedVersionId, setVersionId] = useState("");
+  const [selectedTaskId, setTaskId] = useState("");
   const [catalog, setCatalog] = useState<TourBundle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -60,11 +75,13 @@ export default function QuickstartTour({ apiBase, connected, tasks, onRefresh, o
   const refresh = () => { setLoading(true); setRevision(value => value + 1); onRefresh(); };
   const go = (next: number) => { setStep(next); requestAnimationFrame(() => heading.current?.focus()); };
   const bundles = catalog.filter(row => row.execution_mode === mode);
+  const { versionId, taskId } = tourDefaults(catalog, tasks, mode, selectedVersionId, selectedTaskId);
   const bundle = bundles.find(row => row.target_version_id === versionId);
   const matchingTasks = tasks.filter(row => row.target_version_id === bundle?.target_version_id);
   const task = matchingTasks.find(row => row.attack_task_id === taskId);
   const selection = tourSelection(catalog, tasks, mode, versionId, taskId);
   const canLaunch = connected && !loading && !error && selection !== null;
+  const hasRegistration = connected && !loading && !error && bundles.length > 0 && (!bundle || matchingTasks.length > 0);
 
   return <div className="view-stack quickstart-tour">
     <div className="page-heading"><div className="page-heading-identity"><span className="page-icon"><Compass aria-hidden="true" /></span><div><h2>Your first controlled campaign</h2><p>Register an agent, run a bounded attack, and inspect what actually happened.</p></div></div><Button variant="outline" onClick={() => go(0)}>Restart tour</Button></div>
@@ -84,6 +101,9 @@ export default function QuickstartTour({ apiBase, connected, tasks, onRefresh, o
           </> : null}
 
           {step === 1 ? <>
+            <TourRegistrationCheck mode={mode} bundles={bundles} bundle={bundle} task={task} taskCount={matchingTasks.length} connected={connected} loading={loading} error={error} onRefresh={refresh} />
+            <details className="tour-details tour-registration-instructions" open={!hasRegistration}>
+              <summary>{hasRegistration ? "Register another agent (optional)" : "Registration instructions"}</summary>
             <p>Run these commands from the repository’s <code>backend/</code> directory on the machine running Docker. Bundle registration creates the target, immutable version, scenario, and attack task together.</p>
             {mode === "model" ? <>
               <CommandBlock title="Target model settings" command={modelEnvironment} />
@@ -92,7 +112,8 @@ export default function QuickstartTour({ apiBase, connected, tasks, onRefresh, o
             </> : <p>No model key is needed for the scripted fixture. If you already registered it, continue to the next step.</p>}
             <CommandBlock title={`Register ${mode === "model" ? "model" : "fixture"} bundle`} command={registrationCommands(mode)} />
             <p>A successful registration prints <code>bundle_id</code>, <code>target_version_id</code>, and <code>attack_task_id</code>. The commands write through the API’s writable uploads volume.</p>
-            <details className="tour-details"><summary>Registering your own controlled agent</summary><p>Package an agent that implements the target health, invoke, reset, and declared intervention contracts. Pin its image digest and supply a validated target bundle with the scenario and verifier definitions. Use the same operator-side <code>validate</code> and <code>register</code> commands with your bundle. The Targets page also has manual target, version, and task forms; creating a target name alone does not make it executable.</p><Button variant="outline" onClick={() => onNavigate("targets")}>Open Targets<ArrowRight /></Button></details>
+            <details className="tour-details"><summary>Registering your own controlled agent</summary><p>Package an agent that implements the target health, invoke, reset, and declared intervention contracts. Pin its image digest and supply a validated target bundle with the scenario and verifier definitions. Use the same operator-side <code>validate</code> and <code>register</code> commands with your bundle. Manual setup is available on the main Targets page for advanced workflows.</p></details>
+            </details>
           </> : null}
 
           {step === 2 || step === 3 ? <>
@@ -107,12 +128,12 @@ export default function QuickstartTour({ apiBase, connected, tasks, onRefresh, o
             </div>
             {bundle ? <div className="tour-contract"><span className="status">{bundle.execution_mode === "model" ? <Cpu /> : <Target />}{bundle.execution_mode === "model" ? "Model bundle" : "Scripted fixture"}</span><p><strong>Legitimate task</strong>{bundle.scenario.legitimate_task}</p><p><strong>Attack objective</strong>{bundle.scenario.attack_objective}</p><small>Registered means the definition exists. A successful model call and runtime containment are checked during execution.</small></div> : null}
             {task ? <><TourBudget task={task} /><p>The task fixes the episode, step, token, time, concurrency, and cost limits. To lower them, create a new task for this version in Targets, then refresh and select it here.</p></> : null}
-            {step === 2 ? <Button variant="outline" onClick={() => onNavigate("targets")}>Inspect targets and task budgets<ArrowRight /></Button> : <>
+            {step === 3 ? <>
               <div className="tour-note"><Play /><p>Choose <strong>Linear baseline</strong> for a simple first run or <strong>Adaptive beam</strong> for branching search. Queuing starts work on the worker; it can incur model charges when providers are configured.</p></div>
               <details className="tour-details"><summary>Use a model to generate attacks too</summary><p>Configure <code>ATTACKER_MODEL_PROVIDER</code>, <code>ATTACKER_MODEL_BASE_URL</code>, <code>ATTACKER_MODEL_NAME</code>, and <code>ATTACKER_MODEL_API_KEY</code> in <code>backend/.env</code>, plus its input/output price rates. Recreate the worker when idle. In Experiments, create a Red experiment config with the matching provider and model, then select that config in the launch form. Credentials stay in the worker environment.</p><Button variant="outline" onClick={() => onNavigate("experiments")}>Open Experiments<ArrowRight /></Button></details>
               <Button disabled={!canLaunch} onClick={() => { if (selection && canLaunch) onCampaign(selection); }}><Play />Review and launch campaign</Button>
               {!canLaunch ? <p className="tour-empty">Connect the API, refresh registration, and select a matching version and task to continue.</p> : null}
-            </>}
+            </> : null}
           </> : null}
 
           {step === 4 ? <>
@@ -126,7 +147,7 @@ export default function QuickstartTour({ apiBase, connected, tasks, onRefresh, o
             <details className="tour-details"><summary>If the campaign is stuck or fails</summary><p>Check System and the campaign’s error details. A queued run needs a worker. Model runs need a reachable provider and a profile matching the supervisor settings; re-export and register a new bundle after changing those settings.</p><CommandBlock title="Inspect service logs" command="docker compose logs --tail=100 worker capsule-supervisor" /><Button variant="outline" onClick={() => onNavigate("system")}>Open System<ArrowRight /></Button></details>
           </> : null}
         </div>
-        <footer className="tour-footer"><Button variant="outline" disabled={step === 0} onClick={() => go(step - 1)}><ArrowLeft />Back</Button><span aria-live="polite">{step + 1} / {tourSteps.length}</span>{step < tourSteps.length - 1 ? <Button onClick={() => go(step + 1)}>Next<ArrowRight /></Button> : <Button onClick={() => onNavigate("campaigns")}>Open campaigns<ArrowRight /></Button>}</footer>
+        <footer className="tour-footer"><Button variant="outline" disabled={step === 0} onClick={() => go(step - 1)}><ArrowLeft />Back</Button><span aria-live="polite">{step + 1} / {tourSteps.length}</span>{step < tourSteps.length - 1 ? <Button onClick={() => go(step + 1)}>{step === 1 ? canLaunch ? "Continue to task review" : hasRegistration ? "Choose version and task" : "Next" : "Next"}<ArrowRight /></Button> : <Button onClick={() => onNavigate("campaigns")}>Open campaigns<ArrowRight /></Button>}</footer>
       </section>
     </div>
   </div>;

@@ -407,7 +407,6 @@ export default function ControlPlatform() {
   const [versionOpen, setVersionOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false);
   const [campaignOpen, setCampaignOpen] = useState(false);
-  const [tourTargetsOpen, setTourTargetsOpen] = useState(false);
   const [tourDraft, setTourDraft] = useState<TourSelection | null>(null);
   const [redConfigOpen, setRedConfigOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignRow | null>(null);
@@ -506,7 +505,7 @@ export default function ControlPlatform() {
         <main id="main-content" className="content" tabIndex={-1}>
           {!connected && !loading ? <ConnectionBanner error={error} onOpen={() => navigate("system")} /> : null}
           {connected && error && !loading ? <DataWarning message={error} /> : null}
-          <div hidden={view !== "tour"}><QuickstartTour key={`${apiBase}:${connectionRevision}`} apiBase={apiBase} connected={connected} tasks={data.tasks} onRefresh={refresh} onNavigate={(next) => next === "targets" ? setTourTargetsOpen(true) : navigate(next)} onCampaign={(selection) => { setTourDraft(selection); setCampaignOpen(true); }} /></div>
+          <div hidden={view !== "tour"}><QuickstartTour key={`${apiBase}:${connectionRevision}`} apiBase={apiBase} connected={connected} tasks={data.tasks} onRefresh={refresh} onNavigate={navigate} onCampaign={(selection) => { setTourDraft(selection); setCampaignOpen(true); }} /></div>
           {view === "tour" ? null : view === "guide" ? <GuideChat key={`${apiBase}:${connectionRevision}`} apiBase={apiBase} /> : loading && !data.overview && !data.targets.length && !data.campaigns.length && !data.episodes.length ? <LoadingSurface /> : (
             <>
               {["targets", "experiments", "lab", "trajectories", "learning", "evidence", "system"].includes(view) ? <ResearchWorkspace key={`${apiBase}:${connectionRevision}:${view}`} apiBase={apiBase} view={view} search={search} /> : null}
@@ -525,13 +524,6 @@ export default function ControlPlatform() {
         </main>
       </section>
 
-      <Sheet open={tourTargetsOpen} onOpenChange={setTourTargetsOpen}>
-        <SheetContent className="detail-sheet tour-targets-sheet">
-          <SheetHeader><SheetTitle>Targets · Quickstart</SheetTitle><SheetDescription>Inspect or register targets here. Your quickstart step and selections stay in place.</SheetDescription></SheetHeader>
-          <div className="sheet-scroll"><TargetsView data={data} search="" onTarget={() => setTargetOpen(true)} onVersion={() => setVersionOpen(true)} onTask={() => setTaskOpen(true)} onInspect={setInspection} /></div>
-          <div className="tour-panel-return"><Button onClick={() => setTourTargetsOpen(false)}>Return to quickstart</Button></div>
-        </SheetContent>
-      </Sheet>
       <ConnectionDialog open={connectionOpen} value={apiBase} onOpenChange={setConnectionOpen} onSave={saveApiBase} />
       <TargetDialog open={targetOpen} apiBase={apiBase} onOpenChange={setTargetOpen} onSuccess={refresh} />
       <VersionDialog open={versionOpen} apiBase={apiBase} targets={data.targets} onOpenChange={setVersionOpen} onSuccess={refresh} />
