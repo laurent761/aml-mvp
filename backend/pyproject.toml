@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "adversarial-agent-mvp-backend"
 version = "0.1.0"
 description = "Black-box adversarial agent safety lab backend"
-readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.14,<2",

@@ -11,7 +11,7 @@ RUN python -c 'import pyarrow; assert pyarrow.__version__ == "20.0.0"' \
     && chown -R app:app /app/var
 COPY src /app/src
 COPY migrations /app/migrations
-COPY alembic.ini pyproject.toml uv.lock README.md /app/
+COPY alembic.ini pyproject.toml uv.lock /app/
 ENV PYTHONPATH=/app/src
 USER app
 CMD ["adversarial-api"]

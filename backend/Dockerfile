@@ -11,7 +11,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 COPY --from=uv /uv /uvx /usr/local/bin/
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY src ./src

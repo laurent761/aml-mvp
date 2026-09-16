@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "aml-research-sdk"
 version = "0.1.0"
 description = "Versioned client for the AML research laboratory"
-readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["httpx>=0.28,<1", "pydantic>=2.10,<3"]
 

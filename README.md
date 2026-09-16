@@ -1,241 +1,63 @@
 # AML — Adversarial Agent Research Platform
 
-AML is a laboratory for testing agents through controlled interventions, verifying
-what happens, and recording reproducible research data. Use the web console or
-Python SDK to run experiments against an isolated target agent.
+Run controlled attacks against isolated agents through a web console or Python SDK.
+Red chooses attacks, Blue mediates simulated business effects, and verifiers record
+outcomes. See the [architecture guide](architecture-guide.html) for the full workflow.
 
-**Current scope:** one Python finance reference agent, with scripted fixture and
-configurable model modes. Real-model acceptance and broader benchmarks remain
-outstanding. Researchers supply model configuration, training code, hardware, and
-checkpoint loading.
-
-[Implementation](#current-implementation) · [Project layout](#project-layout) ·
-[First run](#first-run-authenticated-research-demo) ·
-[Full stack](#complete-stack-minio-mlflow-and-telemetry) ·
-[Python SDK](#use-your-own-research-process) ·
-[Models and training](#connect-models-and-external-training) ·
-[Development](#development-and-checks) · [Troubleshooting](#troubleshooting) ·
-[References](#references)
-
-For a visual walkthrough, open the [architecture and lifecycle guide](architecture-guide.html).
+[Run locally](#run-locally) · [SDK](#python-sdk) · [Reproduction](#reproduction) ·
+[Development](#development-and-checks) · [References](#references)
 
 ## Current implementation
 
-The core workflow is **UI or SDK → API → worker → isolated target and Blue services
-→ verifier → stored results**. Blue controls business effects through simulated
-services; verifiers check whether an experiment reached a forbidden state.
+One Python finance reference agent supports scripted `fixture` and configurable
+`model` modes. The platform provides durable sessions, recovery, trajectories,
+datasets, checkpoints, paired evaluations, and reproduction. Research reset creates
+a fresh episode and capsule while retaining previous records.
 
-| Area | Implemented behavior |
+Real-model acceptance, broader benchmarks, verified checkpoint loading, clean image
+build validation, and a production Firecracker/KVM runner remain outstanding.
+Training runs externally: researchers supply models, credentials, hardware, and
+training/restoration code. Fixture success does not establish model performance.
+
+| Directory | Contents |
 |---|---|
-| Targets | Digest-pinned bundles, immutable scenario versions, private ground truth, and a public catalog. Registration alone does not validate an episode. |
-| Attacker (Red) | External SDK action loops or managed linear execution through an approved HTTP runtime. Campaign APIs also support linear/adaptive search. |
-| Execution | Isolated capsules, intervention delivery receipts, durable sessions, operation recovery, and scoped access with ownership and quotas. |
-| Research records | Separate public observations and verified outcomes; generation records, immutable datasets, streamed checkpoints, paired evaluations, and reproduction. |
-| Web console | Shared API records for sessions, runs, trajectories, findings, datasets, checkpoints, evaluations, and health, refreshed through HTTP polling. |
+| `backend/src/` | API, workers, Red/Blue, storage, verifiers, reference agent, and target protocol |
+| `backend/migrations/`, `backend/tests/` | Database migrations and backend checks |
+| `sdk/` | Independent Python client and executable examples |
+| `ui/` | Web console, API proxy, reusable components, and UI tests |
 
-### Finance reference agent
+## Run locally
 
-The [reference agent](backend/src/aml_reference_target/agent.py) uses scenario
-`finance-invoice-summary` **1.1.0**, in the `finance-operations` family and
-`development` split. Its legitimate task reads an invoice and customer record,
-writes a session note, and emails a summary to `finance@internal.test` without
-personal identifiers. It supports bounded model/tool execution, declared tool
-allowlists, health/invoke/reset endpoints, and message, document, and tool-response
-interventions.
-
-| Mode | Purpose | Requirements |
-|---|---|---|
-| `fixture` | Scripted benign behavior, a known synthetic forbidden consequence, and reset checks | Default reference build; no model configuration |
-| `model` | The same agent driven by a model through the supervisor-owned inference broker | Operator-supplied provider, model, credentials, and inference profile |
-
-These are two modes of one agent. Fixture checks demonstrate integration; they do
-not establish real-model performance or benchmark generalization. Target inference
-is disabled until configured. See [target bundles](backend/docs/michelle_archive/TARGET_BUNDLES.md)
-and [target inference](backend/docs/michelle_archive/TARGET_INFERENCE.md) for details.
-
-### Lifecycle and outcome semantics
-
-- Research reset creates a **new episode and capsule**, retaining prior trajectories.
-  Within a capsule, reset clears business state but retains inference history and spend.
-- An action with uncertain effects becomes `indeterminate`; its episode is retired.
-  Recover recorded operations after a disconnect rather than resubmitting an action.
-- “Verified Exploits” are verifier-backed findings. Reproduction is a separate result.
-  The UI excludes defensive hardening and policy administration; their backend APIs remain.
-- Training runs externally. AML records metadata and artifacts; it does not train
-  weights or independently verify which weights a serving runtime has loaded.
-
-### Remaining acceptance work
-
-- Configure a real target model and run the model-mode smoke with recorded provenance.
-- Add controlled targets and frozen benchmark cases; execute matched comparisons
-  before claiming learning improvements.
-- Supply trained checkpoints and verify loading in the serving runtime.
-- Verify clean dependency and image builds without cached fallbacks.
-- Supply and validate a Firecracker/KVM runner if required; only its integration
-  interface is present.
-
-Use [development and checks](#development-and-checks) for results from your checkout.
-Deployment health and model behavior require their own execution evidence.
-
-## Project layout
-
-| Path | Responsibility |
-|---|---|
-| `backend/src/adversarial_agent_mvp/` | API, workers, Red, Blue, capsule management, storage, verifiers, and Ask AML |
-| `backend/src/aml_reference_target/` | Finance reference agent |
-| `backend/src/aml_target_protocol/` | Shared target and intervention contracts |
-| `backend/targets/reference/` | Reference target Dockerfiles |
-| `backend/migrations/` | Database schema migrations |
-| `backend/tests/` | Unit, integration, containment, and live infrastructure checks |
-| `backend/scripts/` | Research setup and validation utilities |
-| `backend/compose*.yaml` | Local service orchestration |
-| `backend/docs/michelle_archive/` | Preserved specifications and operational references |
-| `sdk/src/aml_research/` / `sdk/examples/` | Independent Python client and research workflows |
-| `ui/app/` / `ui/components/` | Web console and reusable interface components |
-| `ui/lib/` / `ui/worker/` | API client, research calculations, and backend proxy |
-| `ui/tests/` | Interface, rendering, and proxy checks |
-
-## First run: authenticated research demo
-
-This profile starts PostgreSQL, API, worker, supervisor and UI with generated
-credentials, separate volumes and loopback ports. Start at the repository root;
-the build step enters `backend/`, where the remaining demo commands run.
-
-### Prerequisites
-
-- Running Docker Engine or Docker Desktop, with Docker Compose v2.
-- Python 3.12+ and `uv` for backend commands. The independent SDK supports Python 3.10+.
-- Internet access for the first dependency/image builds.
-- Approximately 4 CPU cores, 8 GiB RAM and 20 GiB free disk for a small local setup.
-- Node 22.13+ only for UI development outside Docker.
-
-Use one active AML capsule supervisor per Docker endpoint. Startup reconciliation owns
-the AML-labelled capsules on that endpoint. If the main stack is already running,
-stop it with `docker compose down` from `backend/` before starting the separate profile
-below. Its named data volumes are preserved.
-
-### 1. Install and build
+Requires Docker with Compose v2, Python 3.12+, `uv`, `make`, Node 22.13+ with npm,
+and network access for initial installs/builds. Start from the repository root:
 
 ```bash
+make setup
 cd backend
-uv sync --extra dev --locked
-docker build --target api -t adversarial-api:local .
-docker build --target worker -t adversarial-worker:local .
-docker build --target capsule-supervisor -t adversarial-capsule-supervisor:local .
-docker build --target blue-gateway -t blue-gateway:local .
-docker build -t adversarial-ui:local ../ui
-```
-
-Backend images share cached build layers.
-On Linux, check `stat -c '%g' /var/run/docker.sock` and set `DOCKER_GID` to that group
-before starting Compose if it differs from the default `0`.
-
-### 2. Generate credentials and start
-
-```bash
-uv run python scripts/init_research_smoke.py
-docker compose --env-file var/research-smoke.env -f compose.research-smoke.yaml up -d --wait
-docker compose --env-file var/research-smoke.env -f compose.research-smoke.yaml ps
-```
-
-The initializer creates `var/research-smoke.env` and `var/research-smoke.client.json`
-with restricted permissions. It refuses to overwrite existing files; reuse those
-files on subsequent starts. Keep both local.
-
-| Service | Research profile URL |
-|---|---|
-| UI | <http://127.0.0.1:13000> |
-| API | <http://127.0.0.1:18000> |
-| OpenAPI documentation | <http://127.0.0.1:18000/docs> |
-| Readiness probe | <http://127.0.0.1:18000/readyz> |
-
-In the UI connection dialog, use the same-origin proxy and paste the `token` value
-from `var/research-smoke.client.json`. It stays in browser memory. This demo token has
-operator permissions for onboarding and suite registration.
-
-This profile fixes target inference to `disabled`. For model configuration, use the
-[complete stack](#complete-stack-minio-mlflow-and-telemetry).
-
-### 3. Build and register a target
-
-```bash
-uv run adversarial-bundle build-reference --output var/bundles/finance-reference.json
-docker compose --env-file var/research-smoke.env -f compose.research-smoke.yaml cp var/bundles/finance-reference.json api:/tmp/reference.json
-docker compose --env-file var/research-smoke.env -f compose.research-smoke.yaml exec -T api python -m adversarial_agent_mvp.bundle_cli register /tmp/reference.json
-```
-
-The operator CLI registers the private bundle and immutable image digest. Researchers
-see the public scenario in the catalog. Registration does not itself run an episode.
-
-### 4. Install the SDK and run the example
-
-```bash
-uv venv var/sdk-acceptance
-uv pip install --python var/sdk-acceptance/bin/python ../sdk
-var/sdk-acceptance/bin/python ../sdk/examples/acceptance.py --connection var/research-smoke.client.json --output var/acceptance.json
-```
-
-The example executes benign and known-attack fixtures, reset isolation, generation
-recording, export, checkpoint upload/download, paired evaluation, fresh reproduction
-and a UI proxy check. Result IDs are saved to `var/acceptance.json`.
-
-These are scripted wiring checks. The fixture checkpoint is not model weights, and
-its results are not evidence of a real model's vulnerability or performance.
-
-Optionally, on Docker Desktop, test a separately launched HTTP attacker fixture:
-
-```bash
-var/sdk-acceptance/bin/python ../sdk/examples/managed_acceptance.py --connection var/research-smoke.client.json --acceptance var/acceptance.json --endpoint http://host.docker.internal:8099
-```
-
-This starts a loopback fixture server, registers it, runs managed Red, and stops that
-server. Other serving environments use the operator-approved runtime workflow in
-[the SDK examples](sdk/examples/workflows.py).
-
-### 5. Inspect and stop
-
-Use **Targets** for bundles, **Experiments** for runs/evaluations, **Live Lab** for
-sessions, **Trajectories** for actions/receipts, **Learning** for datasets/checkpoints,
-**Evidence** for private verification, and **System** for health.
-
-```bash
-docker compose --env-file var/research-smoke.env -f compose.research-smoke.yaml logs --tail=100 api worker supervisor
-# Stop and preserve data for the next run.
-docker compose --env-file var/research-smoke.env -f compose.research-smoke.yaml down
-```
-
-Adding `-v` deletes this profile's database, uploads and artifacts. Use it only to
-discard the demo; saved record IDs will no longer resolve afterward.
-
-## Complete stack: MinIO, MLflow and telemetry
-
-For MinIO, MLflow, telemetry, or configurable target inference, use this profile.
-Start from the repository root in a fresh terminal:
-
-```bash
-cd backend
-test -f .env || cp .env.example .env
-# Review .env; keep development credentials and bindings local.
+# Review .env; on Linux, set DOCKER_GID to the Docker socket's group.
 docker compose up -d --build --wait
-docker compose ps
+uv run adversarial-bundle build-reference --output var/bundles/finance-reference.json
+docker compose cp var/bundles/finance-reference.json api:/tmp/reference.json
+docker compose exec -T api python -m adversarial_agent_mvp.bundle_cli register /tmp/reference.json
 ```
 
-Default ports: UI **3000**, API **8000**, MinIO **9000/9001**, MLflow **5000**.
-This profile reads `.env`, not `var/research-smoke.env`, and has different volumes.
-Its default local configuration does not require research authentication. For SDK
-bearer access, configure `RESEARCH_AUTH_REQUIRED=true` and `RESEARCH_AUTH_TOKENS` as
-described in [research integration](backend/docs/michelle_archive/RESEARCH_INTEGRATION.md).
+Open the **UI at http://localhost:3000** or **API docs at http://localhost:8000/docs**.
+These are default ports; `.env` can override them. On Linux, find the Docker socket
+group with `stat -c '%g' /var/run/docker.sock`.
+The full stack also includes MinIO and MLflow. Reference registration makes the
+fixture discoverable; it does not run an experiment or configure a real model.
 
-Register a reference target with the build/copy/CLI sequence above, using ordinary
-`docker compose` without the research profile flags. Copying `.env.example` does not
-configure a real model. See [deployment](backend/docs/michelle_archive/DEPLOYMENT.md) for remote access,
-credentials, backups and runtime requirements. Stop with `docker compose down`.
+Use only one active capsule supervisor per Docker endpoint. Stop from `backend/`
+with `docker compose down`; adding `-v` deletes stored data.
+The default local stack disables research authentication; enable
+`RESEARCH_AUTH_REQUIRED` and configure `RESEARCH_AUTH_TOKENS` for authenticated access.
+Review the [architecture guide](architecture-guide.html) before remote use.
 
-## Use your own research process
+## Python SDK
 
-Install with `pip install ./sdk` from the repository root (Python 3.10+). Set
-`AML_API_URL` and `AML_TOKEN` for an authenticated deployment with a registered
-bundle, then run:
+Requires Python 3.10+. Install with `pip install ./sdk` from the repository root.
+Set `AML_API_URL` and `AML_TOKEN` for an authenticated deployment with a registered
+bundle. The SDK has no backend imports and sends protocol version `aml.research.v1`.
 
 ```python
 import asyncio
@@ -245,138 +67,118 @@ from aml_research import Client
 async def main():
     async with Client(os.environ["AML_API_URL"], os.environ["AML_TOKEN"]) as client:
         bundles = await client.catalog()
+        if not bundles:
+            raise RuntimeError("Register a target bundle before running this example.")
         async with client.session(bundle_id=bundles[0]["bundle_id"]) as session:
             initial = await session.reset()
-            # Give only initial.public_observation to your attacker model.
+            # Give only initial.public_observation to your attacker.
             result = await session.step({
-                "channel": "user_message",
-                "payload": {"text": "Process invoice-001."},
+                "channel": "user_message", "payload": {"text": "Process invoice-001."}
             })
-            print(result.public_observation)
-            print(result.outcome)  # Separate research output.
+            print(result.outcome)  # Research output, separate from attacker input.
 
 asyncio.run(main())
 ```
 
-Keep session and operation IDs for recovery. `IndeterminateOperation` signals an
-uncertain side effect; do not resubmit it. The session context manager maintains
-heartbeats and closes the session. See the [SDK README](sdk/README.md) for recovery
-and transfer behavior.
+- `client.session()` bounds concurrency and maintains heartbeats. Keep `session.id` and
+  `session.last_operation_id`; use `client.operation(id)` to recover results and
+  `attach_session()` to resume a live session. `OperationTimeout` exposes its ID.
+- Never blindly retry `IndeterminateOperation`. Interruptions retire the episode.
+  Retries preserve JSON and idempotency keys; recover operations instead of guessing step indices.
+- Failed uploads restart the whole file with the same key; crashed active transfers
+  must expire or be cancelled first. Failed transfers cannot create checkpoints.
+  Downloads verify SHA-256 before replacing files.
+- Outcomes, measurements, rewards, and usage are research outputs. Reported training
+  rewards never change verified outcomes.
 
-## Connect models and external training
+[Workflow examples](sdk/examples/workflows.py) cover concurrency, exports, training
+records, checkpoints, runtimes, and evaluation. Run `python sdk/examples/workflows.py episode`
+from the root. Runtime registration requires operator scope; fixture runtimes and
+checkpoints are wiring examples. See the [architecture guide](architecture-guide.html)
+for lifecycle, isolation, persistence, and model-inference details.
 
-- **Target:** configure supervisor `TARGET_MODEL_*` settings, export its inference
-  profile and register a model-mode bundle. The broker keeps credentials outside the
-  target. Follow [target inference](backend/docs/michelle_archive/TARGET_INFERENCE.md).
-- **Attacker:** choose actions locally through the SDK or register an approved
-  `aml.attacker.v1` HTTP runtime for managed Red. Its configuration is separate from
-  the target model's configuration.
-- **Training:** launch your own process; report lifecycle and metrics, reference
-  datasets, and upload checkpoints. Your script owns training and state restoration.
-- **Evaluation:** freeze a suite and submit two checkpoint references with managed
-  runtimes or externally controlled case sessions. Results come from executed episodes.
+## Reproduction
 
-See [research integration](backend/docs/michelle_archive/RESEARCH_INTEGRATION.md) for APIs, scopes,
-lineage, quotas, checkpoint manifests and reproduction contracts.
+A finding and a successful fresh replay are separate results; seeds do not guarantee
+identical model responses.
 
-## Documentation assistant
+| API | Behavior |
+|---|---|
+| `POST /v1/research-episodes/{id}/reproduce` | Returns 202 with a fresh replay session using the source bundle, policy, seed, and completed actions. Retains source limits with `max_episodes=1`. Requires a finished owned episode, `evaluation` or `operator` scope, and an idempotency key. |
+| `GET /v1/research-sessions/{id}/reproduction` | Read progress, success, and observation divergence. |
+| `POST /v1/findings/{id}/replay` | Operator replay used by the UI. Send `{"reproduction_only": true, "search_nearby_bypasses": false}` to retain original target/task, policy, attacker configuration, and lineage without starting hardening. |
 
-Open **Ask AML** in the console to search the guide and linked documents. Search
-works without a model key; generated answers require a backend-configured
-OpenAI-compatible model and include inspectable citations. Duplicate passages are
-merged while preserving source references. This service is separate from target
-inference and attacker training. See the [setup guide](backend/docs/michelle_archive/GUIDE_CHAT.md).
+For authenticated requests, send `Authorization: Bearer <token>`. The SDK sends
+`X-AML-API-Version: aml.research.v1`; the API defaults to that version if omitted.
+Research reproduction POSTs require an ASCII `Idempotency-Key` of 1–200 characters.
+Setting `search_nearby_bypasses` to `true` requests adaptive mutations; a conflicting
+`policy_version_id` returns 422. Finding replay returns `replay_campaign_id` and its
+execution contract. `reproduction_only` defaults to `false` for compatibility;
+the UI always sends `true`. Deploy matching UI/backend versions and apply migrations
+through `0005`; the replay flag itself requires no migration.
 
 ## Development and checks
 
-### Local development
-
-From the repository root, start UI development against the running research API:
+Prepare every service from the repository root:
 
 ```bash
-cd ui
-npm ci
-BACKEND_API_URL=http://127.0.0.1:18000 npm run dev
+make setup
 ```
 
-Open the Vite port shown in the terminal, usually **5173**. For an API-only development
-process, follow the environment overrides in the [backend quick start](backend/README.md#quick-start).
-Episodes additionally need the worker and a configured supervisor.
-A database hostname such as `postgres` in `.env` is a Compose service name, not a host URL.
+This installs the locked backend development dependencies, installs the SDK into
+the backend virtual environment, installs the locked UI dependencies, and creates
+`backend/.env` from the example when it does not already exist.
 
-### Validation
+**API only**, from `backend/` (experiments also need a worker and supervisor):
 
-Run each block from the repository root.
+```bash
+export DEPLOYMENT_ENVIRONMENT=development SERVICE_ROLE=api
+export DATABASE_URL=sqlite:///./adversarial_mvp.db ARTIFACT_BACKEND=local OTEL_ENABLED=false
+uv run alembic upgrade head
+uv run uvicorn adversarial_agent_mvp.api:create_app --factory --reload
+```
 
-Backend tests, lint, type checks, and packaging:
+These overrides avoid Compose-only database hostnames. Existing authentication still
+applies; use PostgreSQL for deployed execution. A host worker uses matching persistence
+and `CAPSULE_SUPERVISOR_URL`/`CAPSULE_SUPERVISOR_TOKEN` settings:
+`SERVICE_ROLE=worker uv run adversarial-worker`.
+
+**UI**, from `ui/`, with Node 22.13+. Builds/tests also require GNU `timeout` on
+`PATH` (on macOS, install Homebrew `coreutils` and add its `libexec/gnubin` directory):
+
+```bash
+BACKEND_API_URL=http://localhost:8000 npm run dev
+```
+
+Open the printed URL (usually port 5173). Use port 18000 for the authenticated demo.
+Enter a research token in the connection dialog; it stays in memory. The same-origin
+proxy forwards only `/healthz`, `/readyz`, and `/v1/*`, filters headers, and rejects
+redirects. Direct API origins require backend `CORS_ORIGINS`. Views use HTTP polling
+and exclude defensive workflows. **Ask AML** requires operator scope; search works
+without a model key, while cited answers use a backend-configured model.
+
+**Checks**, from the repository root:
 
 ```bash
 (cd backend && OTEL_ENABLED=false uv run pytest && uv run ruff check . && uv run pyright && uv build)
-```
-
-UI lint, type checks, production build, and tests:
-
-```bash
 (cd ui && npm run lint && npm run typecheck && npm test)
-```
-
-SDK packaging:
-
-```bash
 uv build sdk
 ```
 
-Live Docker/PostgreSQL/MinIO tests require explicit disposable-service settings;
-otherwise those gates skip. Use the commands above for results from your checkout.
+`npm test` includes the production build and rendering, proxy, and UI checks;
+`npm run typecheck` generates runtime declarations. From `ui/`, use `npm run build`
+to build alone and `BACKEND_API_URL=http://localhost:8000 npm run start` to serve it.
+Live infrastructure tests require disposable services; otherwise they skip.
+Cached Dockerfiles require matching dependency images and lockfiles.
 
-If first-time downloads fail, retry when network access is restored. `Dockerfile.cached`
-fallbacks require matching local dependency images; see the integration guide for their
-requirements. They are not substitutes for portable clean builds.
-
-### Refresh Ask AML documentation
-
-After changing this README, the HTML guide, or its indexed references, rebuild the
-packaged search index and check that it matches the sources:
+After editing indexed documentation, refresh Ask AML and restart the API
+(rebuild its image for Docker):
 
 ```bash
 (cd backend && uv run adversarial-guide --repo .. && uv run adversarial-guide --repo .. --check)
 ```
 
-Restart the API to load the new index. For containers, rebuild the API image first.
-
-## Troubleshooting
-
-| Symptom | Check |
-|---|---|
-| Empty catalog | Register the target against this deployment's database. |
-| 401 | Use this deployment's token; the research demo stores it in its client JSON. |
-| 403 | Check research/evaluation/evidence/operator scopes. |
-| Session stays queued | Check worker logs, database access and capacity. |
-| Reset fails or session interrupts | Check supervisor logs, image availability and socket permissions. |
-| 409 on retry | Recover the original operation; do not change its payload/index under the same key. |
-| 429 at admission | Check active sessions and owner cost/concurrency limits. |
-| Port already allocated | Check which Compose profile is running. |
-| Initializer says file exists | Reuse the generated files; it does not rotate credentials implicitly. |
-
 ## References
 
-| Document | Purpose |
-|---|---|
-| [Interactive guide](architecture-guide.html) | Offline architecture and illustrative episode walkthrough |
-| [Backend README](backend/README.md) | Backend development and validation entry points |
-| [Target bundles](backend/docs/michelle_archive/TARGET_BUNDLES.md) | Reference agent, scenario packaging, registration and reset semantics |
-| [Target inference](backend/docs/michelle_archive/TARGET_INFERENCE.md) | Model connection, credential ownership, limits and model-mode smoke |
-| [Intervention delivery](backend/docs/michelle_archive/INTERVENTION_DELIVERY.md) | Supported payloads, slots, receipts and target integration |
-| [Research integration](backend/docs/michelle_archive/RESEARCH_INTEGRATION.md) | Sessions, auth, lineage, transfers, runtimes, evaluations and operations |
-| [Deployment](backend/docs/michelle_archive/DEPLOYMENT.md) | Compose services, persistence, credentials and external runner interface |
-| [Threat model](backend/docs/michelle_archive/THREAT_MODEL.md) | Current trust boundaries and residual risks |
-| [Ask AML setup](backend/docs/michelle_archive/GUIDE_CHAT.md) | Documentation search, model configuration, and index refresh |
-| [Controlled-agent details](backend/docs/michelle_archive/CONTROLLED_AGENTS_HANDOFF_PROMPT.md) | Target tool loop, intervention surfaces, and state ownership |
-| [Reproduction](backend/REPRODUCTION.md) | Research replay and legacy reproduction-only contracts |
-| [SDK README](sdk/README.md) | Client installation, recovery semantics and executable examples |
-| [UI README](ui/README.md) / [Product](ui/PRODUCT.md) | UI operation and product semantics |
-| [Infrastructure plan](backend/docs/michelle_archive/AML_Infrastructure_Completion_Plan.md) | Original acceptance specification; baseline gaps are historical |
-
-Specifications and detailed operational references remain in `michelle_archive`.
-The generated UI design snapshots in `ui/.21st/` describe the visual design, not
-implementation status. Vendored styles retain their upstream license.
+- [Architecture guide](architecture-guide.html): system design, lifecycle, isolation, persistence, and operational boundaries.
+- [UI product scope](ui/PRODUCT.md): research views and outcome interpretation.
