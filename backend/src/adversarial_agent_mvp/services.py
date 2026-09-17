@@ -31,6 +31,13 @@ class DockerLifecycle:
                 settings.capsule_supervisor_token,
             )
 
+    async def prepare(self, manifest: TargetManifest):
+        prepare = getattr(self.runtime, "prepare_image", None)
+        if prepare is None:
+            from .image_readiness import ImageUnavailable, unavailable
+            raise ImageUnavailable(unavailable(manifest.image, "READINESS_UNSUPPORTED", "The execution host does not support image readiness checks."))
+        return await prepare(manifest.image)
+
     async def provision(self, episode_id: str, manifest: TargetManifest) -> CapsuleHandle:
         routes = destination_routes_for_manifest(manifest)
         spec = CapsuleSpec(

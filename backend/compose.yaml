@@ -36,6 +36,23 @@ x-app-security: &app-security
     - /tmp:size=64m,noexec,nosuid,nodev
 
 services:
+  target-registry:
+    image: registry:2.8.3
+    restart: unless-stopped
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${TARGET_REGISTRY_PORT:-5001}:5000"
+    volumes:
+      - target-images:/var/lib/registry
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:5000/v2/"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks:
+      - control
+
   postgres:
     image: postgres:17.6-alpine
     restart: unless-stopped
@@ -272,6 +289,7 @@ services:
       RESEARCH_MAX_REQUEST_BYTES: ${RESEARCH_MAX_REQUEST_BYTES:-1048576}
       RESEARCH_REQUESTS_PER_MINUTE: ${RESEARCH_REQUESTS_PER_MINUTE:-600}
       CAPSULE_SUPERVISOR_URL: http://capsule-supervisor:8090
+      CAPSULE_SUPERVISOR_TOKEN: ${CAPSULE_SUPERVISOR_TOKEN:?set CAPSULE_SUPERVISOR_TOKEN in .env}
     depends_on:
       migration:
         condition: service_completed_successfully
@@ -372,6 +390,7 @@ networks:
     internal: true
 
 volumes:
+  target-images:
   postgres-data:
   minio-data:
   mlflow-data:

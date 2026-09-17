@@ -24,17 +24,14 @@ TARGET_MODEL_INPUT_COST_PER_MILLION=0
 TARGET_MODEL_OUTPUT_COST_PER_MILLION=0`;
 
 export function registrationCommands(mode: TourMode): string {
-  const build = "uv run adversarial-bundle build-reference --output var/bundles/finance-reference.json";
-  const profile = `# Apply the target settings, then export the exact running profile.
+  if (mode === "fixture") return "bash scripts/prepare-reference.sh";
+  return `# Apply the target settings, then export the exact running profile.
+mkdir -p var/bundles
 docker compose up -d --no-deps --force-recreate capsule-supervisor
 docker compose exec -T capsule-supervisor python -m adversarial_agent_mvp.bundle_cli inference-profile --output /tmp/target-profile.json
 docker compose exec -T capsule-supervisor cat /tmp/target-profile.json > var/bundles/target-profile.json
-uv run adversarial-bundle reference --image "$(docker image inspect --format '{{.Id}}' aml-reference-target:local)" --inference-profile var/bundles/target-profile.json --output var/bundles/finance-model.json`;
-  const file = mode === "model" ? "finance-model.json" : "finance-reference.json";
-  return `${build}\n${mode === "model" ? `\n${profile}\n` : ""}\n` +
-    `docker compose exec -T api sh -c 'cat > /app/var/uploads/${file}' < var/bundles/${file}\n` +
-    `docker compose exec -T api python -m adversarial_agent_mvp.bundle_cli validate /app/var/uploads/${file}\n` +
-    `docker compose exec -T api python -m adversarial_agent_mvp.bundle_cli register /app/var/uploads/${file}`;
+bash scripts/prepare-reference.sh --inference-profile var/bundles/target-profile.json`;
+
 }
 
 /** Never substitute a fixture, another target, or a stale selected task. */

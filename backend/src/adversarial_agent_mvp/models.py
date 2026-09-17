@@ -32,6 +32,9 @@ class ModelUsage:
     search_id: str | None = None
     search_node_id: str | None = None
     step_index: int | None = None
+    usage_source: str = "unknown"
+    execution_kind: str = "unknown"
+    cost_source: str = "unknown"
 
     def merged(self, other: ModelUsage) -> ModelUsage:
         if self.request_hash and other.request_hash:
@@ -41,6 +44,9 @@ class ModelUsage:
         else:
             request_hash = self.request_hash or other.request_hash
         return ModelUsage(
+            usage_source=(other.usage_source if not (self.successful_calls or self.failed_calls) else self.usage_source if self.usage_source == other.usage_source else "mixed"),
+            execution_kind=other.execution_kind,
+            cost_source=other.cost_source,
             tokens=self.tokens + other.tokens,
             cost=self.cost + other.cost,
             provider=other.provider if other.provider != "unknown" else self.provider,
@@ -326,7 +332,7 @@ class OpenAICompatibleAttackerModel:
         *,
         payload: Mapping[str, Any],
         content: str | None,
-    ) -> dict[str, int]:
+    ) -> dict[str, Any]:
         """Fail closed when an OpenAI-compatible endpoint omits usage metadata."""
 
         def provider_count(key: str) -> int:
@@ -341,11 +347,13 @@ class OpenAICompatibleAttackerModel:
 
         input_tokens = provider_count("prompt_tokens")
         output_tokens = provider_count("completion_tokens")
+        estimated = input_tokens == 0 or (output_tokens == 0 and content is not None)
         if input_tokens == 0:
             input_tokens = estimate(payload.get("messages", []))
         if output_tokens == 0 and content is not None:
             output_tokens = estimate(content)
         return {
+            "usage_source": "estimated" if estimated else "provider",
             "prompt_tokens": input_tokens,
             "completion_tokens": output_tokens,
         }
@@ -361,6 +369,9 @@ class OpenAICompatibleAttackerModel:
         input_tokens = int(usage.get("prompt_tokens", 0))
         output_tokens = int(usage.get("completion_tokens", 0))
         call = ModelUsage(
+            execution_kind="model",
+            usage_source=str(usage.get("usage_source", "unknown")),
+            cost_source="operator_rates" if self.input_cost_per_million or self.output_cost_per_million else "unpriced",
             tokens=input_tokens + output_tokens,
             cost=(
                 input_tokens * self.input_cost_per_million
@@ -390,6 +401,9 @@ class OpenAICompatibleAttackerModel:
         input_tokens = int(usage.get("prompt_tokens", 0))
         output_tokens = int(usage.get("completion_tokens", 0))
         call = ModelUsage(
+            execution_kind="model",
+            usage_source=str(usage.get("usage_source", "unknown")),
+            cost_source="operator_rates" if self.input_cost_per_million or self.output_cost_per_million else "unpriced",
             tokens=input_tokens + output_tokens,
             cost=(
                 input_tokens * self.input_cost_per_million
@@ -561,6 +575,9 @@ class BudgetedAttackerModel:
         elif actions:
             estimated = sum(len(json.dumps(action.payload)) for action in actions) // 4
             usage = ModelUsage(
+                execution_kind="simulated" if isinstance(self.delegate, (HeuristicBaselineModel, StaticAttackSuiteModel)) else "unknown",
+                usage_source="simulated" if isinstance(self.delegate, (HeuristicBaselineModel, StaticAttackSuiteModel)) else "estimated",
+                cost_source="not_applicable" if isinstance(self.delegate, (HeuristicBaselineModel, StaticAttackSuiteModel)) else "unknown",
                 tokens=max(estimated, 1),
                 provider="internal",
                 model=type(self.delegate).__name__,

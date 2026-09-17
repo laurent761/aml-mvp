@@ -19,6 +19,7 @@ from .contracts import (
     RuntimeContainmentProof,
     new_id,
 )
+from .image_readiness import ImageReadiness, ImageUnavailable, inspect_image
 from .inference import TargetInferenceBroker
 from .inference_contracts import INFERENCE_DESTINATION, InferenceWork
 from .security import CapabilityTokenService, redact_sensitive
@@ -124,9 +125,12 @@ class DockerCommandRunner:
         )
         try:
             stdout, stderr = await asyncio.wait_for(process.communicate(), timeout)
-        except TimeoutError:
-            process.kill()
+        except (TimeoutError, asyncio.CancelledError) as exc:
+            if process.returncode is None:
+                process.kill()
             await process.communicate()
+            if isinstance(exc, asyncio.CancelledError):
+                raise
             raise CapsuleError("Docker operation timed out") from None
         if process.returncode:
             raise CapsuleError(stderr.decode(errors="replace").strip() or "Docker operation failed")
@@ -204,6 +208,15 @@ class DockerCapsuleRuntime:
         self.inference_broker = inference_broker
         self._inference_relays: dict[str, asyncio.Task[None]] = {}
 
+    async def image_readiness(self, image: str, *, restore: bool = False) -> ImageReadiness:
+        return await inspect_image(self.runner, image, restore=restore)
+
+    async def prepare_image(self, image: str) -> ImageReadiness:
+        result = await self.image_readiness(image, restore=True)
+        if result.status != "READY":
+            raise ImageUnavailable(result)
+        return result
+
     async def create(self, spec: CapsuleSpec) -> CapsuleHandle:
         preflight = containment_preflight(spec)
         if not preflight.verified:
@@ -239,6 +252,7 @@ class DockerCapsuleRuntime:
         ]
         handle: CapsuleHandle | None = None
         try:
+            await self.prepare_image(spec.image)
             ownership_labels = self._ownership_labels(capsule_id, spec.episode_id)
             network_id = await self.runner.run(
                 "network",
@@ -378,8 +392,14 @@ class DockerCapsuleRuntime:
                 except BaseException:
                     pass
             await self._cleanup_after_interruption(created)
-            if isinstance(exc, asyncio.CancelledError):
+            if isinstance(exc, (asyncio.CancelledError, ImageUnavailable)):
                 raise
+            if "no such image" in str(exc).lower():
+                from .image_readiness import unavailable
+                result = await self.image_readiness(spec.image)
+                if result.status == "READY":
+                    result = unavailable(spec.image, "RUNTIME_IMAGE_MISSING", "AML's execution environment is missing a required runtime image.", "Rebuild the AML runtime services, then start a new campaign.")
+                raise ImageUnavailable(result) from None
             message = redact_sensitive(str(exc), sensitive_values)
             raise CapsuleError(message) from None
 

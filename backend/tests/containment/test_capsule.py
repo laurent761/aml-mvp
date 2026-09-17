@@ -39,6 +39,10 @@ class Runner:
 
     async def run(self, *args, timeout=30):
         self.calls.append(args)
+        if args[0] == "info":
+            return "linux/arm64"
+        if args[:2] == ("image", "inspect"):
+            return json.dumps([{"Id": "sha256:" + "b" * 64, "RepoDigests": [args[-1]], "Os": "linux", "Architecture": "arm64"}])
         if self.fail_on and self.fail_on in args:
             raise CapsuleError("failed with secret-value")
         if args[:2] == ("network", "create"):
@@ -92,7 +96,7 @@ class Runner:
 def spec(**changes):
     values = {
         "episode_id": "e1",
-        "image": "target:immutable",
+        "image": ("target@sha256:" + "a" * 64),
         "entrypoint": ["run"],
         "allowed_destination_aliases": ["payments"],
     }
@@ -154,7 +158,7 @@ async def test_manifest_entrypoint_is_forced_instead_of_passed_as_image_cmd():
     await runtime.create(spec(entrypoint=["python", "-m", "agent"]))
 
     target_run = [call for call in runner.calls if call[0] == "run"][1]
-    image_index = target_run.index("target:immutable")
+    image_index = target_run.index("target@sha256:" + "a" * 64)
     assert target_run[image_index - 2 : image_index] == ("--entrypoint", "python")
     assert target_run[image_index + 1 :] == ("-m", "agent")
 
@@ -169,7 +173,7 @@ async def test_unexpected_network_attachment_triggers_teardown():
 
 @pytest.mark.asyncio
 async def test_startup_error_is_redacted_and_cleanup_runs():
-    runner = Runner(fail_on="target:immutable")
+    runner = Runner(fail_on=("target@sha256:" + "a" * 64))
     runtime = DockerCapsuleRuntime(runner)
     bad = spec(environment={"PUBLIC_ALIAS": "secret-value"})
     with pytest.raises(CapsuleError) as raised:
@@ -274,7 +278,7 @@ async def test_cancellation_during_create_still_removes_partial_resources():
             self.target_started = asyncio.Event()
 
         async def run(self, *args, timeout=30):
-            if args and args[0] == "run" and "target:immutable" in args:
+            if args and args[0] == "run" and ("target@sha256:" + "a" * 64) in args:
                 self.target_started.set()
                 await asyncio.Event().wait()
             return await super().run(*args, timeout=timeout)

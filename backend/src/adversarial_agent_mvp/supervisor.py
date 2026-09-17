@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
+from pydantic import BaseModel
 
 from .capsule import (
     CapsuleError,
@@ -16,8 +17,14 @@ from .capsule import (
     ReconciliationResult,
 )
 from .contracts import CapsuleHandle, CapsuleSpec
+from .image_readiness import ImageReadiness, ImageUnavailable, unavailable
 from .settings import Settings, get_settings
 from .telemetry import configure_telemetry, instrument_fastapi
+
+
+class ImageCheck(BaseModel):
+    image: str
+    restore: bool = False
 
 
 class CapsuleSupervisorClient:
@@ -34,6 +41,23 @@ class CapsuleSupervisorClient:
         self._headers = {"Authorization": f"Bearer {token}"}
         self.client = client or httpx.AsyncClient(timeout=120, trust_env=False)
         self._owns_client = client is None
+
+    async def image_readiness(self, image: str, *, restore: bool = False) -> ImageReadiness:
+        try:
+            response = await self.client.post(
+                f"{self.base_url}/v1/images/check", headers=self._headers,
+                json={"image": image, "restore": restore},
+            )
+            self._raise_for_status(response)
+            return ImageReadiness.model_validate(response.json())
+        except (httpx.HTTPError, CapsuleError, ValueError):
+            return unavailable(image, "SUPERVISOR_UNAVAILABLE", "AML could not contact the execution host to verify this target.")
+
+    async def prepare_image(self, image: str) -> ImageReadiness:
+        result = await self.image_readiness(image, restore=True)
+        if result.status != "READY":
+            raise ImageUnavailable(result)
+        return result
 
     async def create(self, spec: CapsuleSpec) -> CapsuleHandle:
         response = await self.client.post(
@@ -116,7 +140,10 @@ class CapsuleSupervisorClient:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             try:
-                detail = str(response.json().get("detail", "capsule supervisor request failed"))
+                payload = response.json().get("detail", "capsule supervisor request failed")
+                if isinstance(payload, dict) and payload.get("status") == "UNAVAILABLE":
+                    raise ImageUnavailable(ImageReadiness.model_validate(payload)) from exc
+                detail = str(payload)
             except (ValueError, AttributeError):
                 detail = "capsule supervisor request failed"
             raise CapsuleError(detail) from exc
@@ -252,6 +279,8 @@ def create_supervisor_app(
             raise HTTPException(status_code=401, detail="valid supervisor token required")
 
     def translate_runtime_error(exc: Exception) -> HTTPException:
+        if isinstance(exc, ImageUnavailable):
+            return HTTPException(status_code=409, detail=exc.readiness.model_dump(mode="json"))
         if isinstance(exc, KeyError):
             return HTTPException(status_code=404, detail="capsule not found")
         return HTTPException(status_code=409, detail=str(exc))
@@ -275,6 +304,13 @@ def create_supervisor_app(
                 "active_capsules": state.reconciliation.active_capsules,
             },
         }
+
+    @app.post("/v1/images/check", response_model=ImageReadiness, dependencies=[Depends(authorize)])
+    async def check_image(payload: ImageCheck) -> ImageReadiness:
+        check = getattr(state.runtime, "image_readiness", None)
+        if check is None:
+            return unavailable(payload.image, "READINESS_UNSUPPORTED", "This execution host does not support image readiness checks.")
+        return await check(payload.image, restore=payload.restore)
 
     @app.post(
         "/v1/capsules",

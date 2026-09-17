@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { apiRequest, formatCost, formatDate, shortId } from "@/lib/api-client";
+import { apiRequest, formatDate, shortId } from "@/lib/api-client";
 
 type RecordRow = { id: string; created_at?: string; document: Record<string, unknown> };
 export type ResearchSessionRow = {
@@ -32,7 +32,7 @@ export function ResearchTrajectory({ operations, onEvidence }: { operations: Ope
       {result?.public_observation?.target_response ? <p className="research-response">{result.public_observation.target_response}</p> : null}
       {receipt ? <p>Delivery: <strong>{receipt.status.replaceAll("_", " ")}</strong> · {receipt.slot_id ?? "No slot"} · {receipt.delivery_point?.replaceAll("_", " ")}</p> : null}
       {result?.outcome ? <dl className="research-facts"><div><dt>Verified outcome</dt><dd>{result.outcome.terminal_success === true ? "Forbidden state reached" : result.outcome.terminal_success === false ? "No forbidden state recorded" : "Unknown"}</dd></div><div><dt>Execution</dt><dd>{result.outcome.execution_status}</dd></div><div><dt>Stopped by</dt><dd>{result.outcome.termination_reason ?? result.outcome.truncation_reason ?? "Still active"}</dd></div></dl> : null}
-      {result?.usage ? <p>{result.usage.model_tokens} model tokens · {formatCost(result.usage.cost)} · {result.usage.latency_ms} ms</p> : null}
+      {result?.usage ? <p>{result.usage.model_tokens} recorded token units · usage source and pricing unverified · {result.usage.latency_ms} ms</p> : null}
       {result?.episode_id && onEvidence ? <Button variant="outline" size="sm" onClick={() => onEvidence(result.episode_id!)}>Inspect episode evidence</Button> : null}
       {result?.public_observation?.visible_errors?.map((error, index) => <p role="status" key={index}>{error}</p>)}
       <details><summary>Recorded input and result</summary><pre className="inspector-json">{JSON.stringify(operation, null, 2)}</pre></details>
@@ -100,7 +100,7 @@ export default function ResearchWorkspace({ apiBase, view, search }: { apiBase: 
   return <section className="surface research-workspace" aria-label="Research integration"><div className="section-head"><div><h3>{view === "targets" ? "Runnable target bundles" : view === "system" ? "Research services" : "Research records"}</h3><p>{view === "targets" ? "Registered scenarios and their declared execution mode." : "Records shared with the Python SDK."}</p></div><Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}><RefreshCw />Refresh research</Button></div>
     {error ? <p className="research-error" role="alert">{error}</p> : null}
     {loading ? <p role="status" className="research-empty">Loading research records…</p> : null}
-    {view === "targets" ? <div className="research-record-grid">{catalog.filter(matches).map(item => <article key={item.bundle_id}><h4>{item.scenario.name}</h4><p>{item.scenario.version} · {item.scenario.split} · {item.execution_mode}</p><small>{item.readiness}; live acceptance not asserted</small>{item.last_session ? <p>Latest session: {item.last_session.state} · {item.last_session.stop_reason ?? "No stop reported"}</p> : null}</article>)}</div> : null}
+    {view === "targets" ? <div className="research-record-grid">{catalog.filter(matches).map(item => <article key={item.bundle_id}><h4>{item.scenario.name}</h4><p>{item.scenario.version} · {item.scenario.split} · {item.execution_mode === "fixture" ? "Simulation · scripted target" : item.execution_mode === "model" ? "Real model target configured" : "Target mode unknown"}</p><small>{item.readiness}; live acceptance not asserted</small>{item.last_session ? <p>Latest session: {item.last_session.state} · {item.last_session.stop_reason ?? "No stop reported"}</p> : null}</article>)}</div> : null}
     {view === "system" && health ? <pre className="inspector-json">{JSON.stringify(health, null, 2)}</pre> : null}
     {["experiments", "lab", "trajectories", "evidence"].includes(view) ? <ResearchSessionTable sessions={sessions.filter(matches).filter(s => view !== "lab" || ["queued", "ready", "active", "episode_done"].includes(s.state))} onSelect={id => { setSelected(id); setOperations([]); }} /> : null}
     {Object.entries(records).map(([kind, rows]) => <div key={kind} className="research-record-section"><h4>{kind.replaceAll("-", " ")}</h4><div className="research-record-grid">{rows.filter(matches).map(row => <button key={row.id} onClick={() => void inspect(`/v1/${kind}/${row.id}`)}><strong>{String(row.document.name ?? shortId(row.id))}</strong><small>{formatDate(row.created_at)}</small><span>{kind === "research-runs" ? String(row.document.execution_mode) : String(row.document.kind ?? row.document.split ?? "View executed results")}</span></button>)}</div>{rows.length === 0 ? <p className="research-empty">No records yet.</p> : null}</div>)}

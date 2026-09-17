@@ -28,6 +28,7 @@ from .contracts import (
 )
 from .environment import BlackBoxEnvironment
 from .evidence import EvidenceBuilder
+from .image_readiness import ImageUnavailable
 from .models import AttackerModel, BudgetedAttackerModel, ModelUsage
 from .red import (
     BestFirstBeamSearch,
@@ -504,6 +505,7 @@ class CampaignRunner:
             CampaignStatus.COMPLETED,
             CampaignStatus.FAILED,
             CampaignStatus.REJECTED,
+            CampaignStatus.BLOCKED,
         }:
             return
         if campaign.cancellation_requested or campaign.status == CampaignStatus.CANCELLING:
@@ -538,6 +540,15 @@ class CampaignRunner:
                 campaign_id, CampaignStatus.REJECTED, completed_at=datetime.now(UTC)
             )
             return
+
+        prepare = getattr(self.runtime, "prepare", None)
+        if prepare is not None:
+            try:
+                readiness = await prepare(manifest)
+                self.repository.add_event("campaign", campaign_id, "CAMPAIGN_IMAGE_READINESS", readiness.model_dump(mode="json"))
+            except ImageUnavailable as exc:
+                self._block_for_image(campaign_id, exc)
+                return
 
         campaign_at_start = campaign
         try:
@@ -584,6 +595,11 @@ class CampaignRunner:
                     else "SUCCEEDED"
                 ),
                 configuration={
+                    "execution_kind": usage.execution_kind,
+                    "usage_source": usage.usage_source,
+                    "cost_source": usage.cost_source,
+                    "input_tokens": usage.input_tokens,
+                    "output_tokens": usage.output_tokens,
                     "operation": usage.operation,
                     "successful_calls": usage.successful_calls,
                     "failed_calls": usage.failed_calls,
@@ -674,6 +690,8 @@ class CampaignRunner:
                 )
                 await self._finalize_hardening_runs(campaign_id)
             await self._record_experiment(campaign_id, experiment)
+        except ImageUnavailable as exc:
+            self._block_for_image(campaign_id, exc)
         except asyncio.CancelledError:
             # API cancellation is durable and terminal; infrastructure cancellation
             # (worker shutdown or lease loss) must remain retryable.
@@ -685,6 +703,13 @@ class CampaignRunner:
             # The leased worker owns retry policy and reconciles the campaign only
             # after max attempts. Leaving RUNNING here preserves crash recovery.
             raise
+
+    def _block_for_image(self, campaign_id: str, exc: ImageUnavailable) -> None:
+        self.repository.add_event("campaign", campaign_id, "CAMPAIGN_IMAGE_READINESS", exc.readiness.model_dump(mode="json"))
+        if self._cancelled(campaign_id):
+            self._fail_campaign(campaign_id)
+        else:
+            self.repository.set_campaign_status(campaign_id, CampaignStatus.BLOCKED, completed_at=datetime.now(UTC))
 
     def _experiment(self, campaign: Campaign) -> RedExperimentConfig:
         if campaign.red_config_id:
@@ -727,6 +752,7 @@ class CampaignRunner:
             CampaignStatus.COMPLETED,
             CampaignStatus.FAILED,
             CampaignStatus.REJECTED,
+            CampaignStatus.BLOCKED,
         }:
             self.repository.set_campaign_status(
                 campaign_id, CampaignStatus.FAILED, completed_at=datetime.now(UTC)
@@ -1202,6 +1228,7 @@ class CampaignRunner:
             CampaignStatus.COMPLETED,
             CampaignStatus.FAILED,
             CampaignStatus.REJECTED,
+            CampaignStatus.BLOCKED,
         }
         for run in self.repository.list_hardening_runs_for_campaign(campaign_id):
             if run.status != "PENDING":

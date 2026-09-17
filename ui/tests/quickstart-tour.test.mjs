@@ -28,13 +28,12 @@ test("model instructions export the running supervisor profile and register the 
   const model = registrationCommands("model");
   const fixture = registrationCommands("fixture");
   assert.match(model, /capsule-supervisor python -m adversarial_agent_mvp.bundle_cli inference-profile/);
-  assert.match(model, /adversarial-bundle reference --image .* --inference-profile/);
-  assert.match(model, /register \/app\/var\/uploads\/finance-model.json/);
-  assert.match(fixture, /register \/app\/var\/uploads\/finance-reference.json/);
+  assert.match(model, /prepare-reference.sh --inference-profile var\/bundles\/target-profile.json/);
+  assert.equal(fixture, "bash scripts/prepare-reference.sh");
   assert.doesNotMatch(fixture, /inference-profile|force-recreate/);
   for (const command of [model, fixture]) {
-    assert.doesNotMatch(command, /compose cp|register \/tmp/);
-    assert.match(command, /validate \/app\/var\/uploads\//);
+    assert.doesNotMatch(command, /compose cp|docker image inspect|register \/tmp/);
+    assert.match(command, /prepare-reference.sh/);
   }
 });
 

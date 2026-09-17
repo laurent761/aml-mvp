@@ -137,28 +137,44 @@ curl --fail http://localhost:8000/readyz
 
 ### 4. Add the included finance agent to AML
 
-AML needs to know which agent to test. From `backend/`, build the included agent's
-Docker image and create a bundle file describing that agent and its test scenario:
+From `backend/`, prepare the finance target with one command:
 
 ```bash
-uv run adversarial-bundle build-reference --output var/bundles/finance-reference.json
+bash scripts/prepare-reference.sh
 ```
 
-The bundle records the exact image that was built, so AML can run that version of
-the agent. Build it using the same Docker installation that runs the AML services.
+This builds the target, publishes it under a unique build tag in the persistent
+local registry, records its registry digest, validates the bundle and registers
+an immutable target version. Repeating the same bundle is idempotent. A changed
+build creates a new version; existing campaigns and exact replays keep their
+original version. Refresh registration in AML to select the new version.
 
-The next three commands copy the bundle into the API container, check that it is
-valid, and add it to AML's database:
+The registry listens only on `127.0.0.1:5001` and retains images in the separate
+`target-images` Docker volume. Service rebuilds and image-cache pruning do not
+delete this volume. Back it up along with the AML database; do not remove it with
+`docker compose down -v`. No automatic registry deletion or garbage collection is
+configured: retained campaign evidence may still reference any saved image.
 
-```bash
-docker compose exec -T api sh -c 'cat > /app/var/uploads/finance-reference.json' < var/bundles/finance-reference.json
-docker compose exec -T api python -m adversarial_agent_mvp.bundle_cli validate /app/var/uploads/finance-reference.json
-docker compose exec -T api python -m adversarial_agent_mvp.bundle_cli register /app/var/uploads/finance-reference.json
-```
+The supervisor verifies the exact image on its execution daemon before any
+experiments and again when provisioning. Missing registry-backed images are
+pulled by digest, never by a moving tag. If restoration fails, the campaign is
+`BLOCKED` with no security result from unexecuted tests. Retry recovery from the
+UI, then launch a new campaign; historical campaign results are not rewritten.
 
-Validation should print `"valid": true` and `"mode": "fixture"`; registration prints
-the registered bundle record. Registration makes the target available but does not
-start an experiment.
+Registration alone does not imply readiness. The Targets view and campaign
+launcher can check/prepare the selected version. Readiness is a point-in-time
+image/platform check, not a claim that the target passed a security test or that
+its application will start successfully.
+
+For a remote deployment, pass `--repository registry.example/team/finance-reference`
+and configure the supervisor daemon's registry access. It must be able to pull
+the same digest. `build-reference --local-only` is an explicit disposable test
+mode; it records only a local image ID and cannot restore a removed image.
+Legacy versions with bare `sha256:` IDs require the original image backup or a
+newly prepared version. A rebuild must never be silently substituted for them.
+
+The command defaults to fixture mode. To preserve a model target's mode, supply
+`--inference-profile path/to/profile.json`; the profile contains no credentials.
 
 ### 5. Run your first campaign in the browser
 

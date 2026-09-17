@@ -50,6 +50,7 @@ class CampaignStatus(StrEnum):
     FAILED = "FAILED"
     COMPLETED = "COMPLETED"
     REJECTED = "REJECTED"
+    BLOCKED = "BLOCKED"
 
 
 class EpisodeStatus(StrEnum):

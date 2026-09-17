@@ -29,7 +29,9 @@ test("trajectory keeps verified outcome, delivery receipt and usage distinct", (
   } }] }));
   assert.match(html, /Forbidden state reached/);
   assert.match(html, /invoice-content/);
-  assert.match(html, /42 model tokens/);
+  assert.match(html, /42 recorded token units/);
+  assert.match(html, /usage source and pricing unverified/);
+  assert.doesNotMatch(html, /42 model tokens/);
   assert.doesNotMatch(html, /<script>untrusted/);
 });
 

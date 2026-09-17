@@ -20,10 +20,12 @@ from .contracts import (
     TargetManifest,
 )
 from .evidence import EvidenceBuilder
+from .image_readiness import ImageReadiness, unavailable
 from .red_contracts import RedExperimentConfig
 from .scenarios import ScenarioCatalog
 from .settings import Settings, get_settings
 from .storage import Database, Repository
+from .supervisor import CapsuleSupervisorClient
 from .telemetry import configure_telemetry, instrument_fastapi, instrument_sqlalchemy
 
 
@@ -108,6 +110,7 @@ class PolicyVersionResponse(PolicyVersionCreated):
 
 
 class CampaignResponse(ApiResponse):
+    usage_summary: dict[str, Any] | None = None
     campaign_id: str
     target_version_id: str
     attack_task_id: str
@@ -124,6 +127,7 @@ class CampaignResponse(ApiResponse):
     episodes_started: int
     tokens_used: int
     cost_used: float
+    image_readiness: dict[str, Any] | None = None
     containment_status: str
     containment_preflight: dict[str, Any] | None
     created_at: datetime
@@ -193,6 +197,7 @@ class ModelInvocationResponse(ApiResponse):
 
 
 class EpisodeDetailResponse(ApiResponse):
+    usage_summary: dict[str, Any] | None = None
     episode_id: str
     campaign_id: str
     status: str
@@ -208,6 +213,7 @@ class EpisodeDetailResponse(ApiResponse):
 
 
 class CampaignMetricsResponse(ApiResponse):
+    usage_summary: dict[str, Any] | None = None
     campaign_id: str
     status: str
     episodes_started: int
@@ -290,7 +296,7 @@ def get_store(request: Request) -> ArtifactStore:
     return request.app.state.artifact_store
 
 
-def _campaign(row: Any, containment_preflight: dict[str, Any] | None = None) -> dict[str, Any]:
+def _campaign(row: Any, containment_preflight: dict[str, Any] | None = None, image_readiness: dict[str, Any] | None = None, usage_summary: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "campaign_id": row.id,
         "target_version_id": row.target_version_id,
@@ -314,6 +320,8 @@ def _campaign(row: Any, containment_preflight: dict[str, Any] | None = None) -> 
             else "PENDING"
         ),
         "containment_preflight": containment_preflight,
+        "image_readiness": image_readiness,
+        "usage_summary": usage_summary,
         "created_at": row.created_at,
         "started_at": row.started_at,
         "completed_at": row.completed_at,
@@ -671,6 +679,27 @@ def create_app(
             "created_at": row.created_at,
         }
 
+    async def target_image_readiness(version_id: str, repo: Repository, *, restore: bool) -> ImageReadiness:
+        try:
+            manifest = TargetManifest.model_validate(repo.load_manifest(version_id))
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="target version not found") from exc
+        if not settings.capsule_supervisor_url:
+            return unavailable(manifest.image, "SUPERVISOR_UNAVAILABLE", "No execution host is configured for image checks.")
+        client = CapsuleSupervisorClient(settings.capsule_supervisor_url, settings.capsule_supervisor_token)
+        try:
+            return await client.image_readiness(manifest.image, restore=restore)
+        finally:
+            await client.aclose()
+
+    @app.get("/v1/target-versions/{version_id}/readiness", response_model=ImageReadiness)
+    async def image_readiness(version_id: str, repo: Repository = Depends(get_repo)) -> ImageReadiness:
+        return await target_image_readiness(version_id, repo, restore=False)
+
+    @app.post("/v1/target-versions/{version_id}/prepare", response_model=ImageReadiness)
+    async def prepare_target_image(version_id: str, repo: Repository = Depends(get_repo)) -> ImageReadiness:
+        return await target_image_readiness(version_id, repo, restore=True)
+
     @app.get("/v1/campaigns", response_model=list[CampaignResponse])
     def list_campaigns(
         status: str | None = None,
@@ -679,7 +708,7 @@ def create_app(
         repo: Repository = Depends(get_repo),
     ) -> list[dict[str, Any]]:
         return [
-            _campaign(row, repo.get_containment_preflight(row.id))
+            _campaign(row, repo.get_containment_preflight(row.id), repo.get_image_readiness(row.id), repo.usage_summary(row.id))
             for row in _slice(repo.list_campaigns(status=status), offset, limit)
         ]
 
@@ -700,14 +729,14 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        return _campaign(row, repo.get_containment_preflight(row.id))
+        return _campaign(row, repo.get_containment_preflight(row.id), repo.get_image_readiness(row.id), repo.usage_summary(row.id))
 
     @app.get("/v1/campaigns/{campaign_id}", response_model=CampaignResponse)
     def get_campaign(campaign_id: str, repo: Repository = Depends(get_repo)) -> dict[str, Any]:
         row = repo.get_campaign(campaign_id)
         if row is None:
             raise HTTPException(status_code=404, detail="campaign not found")
-        return _campaign(row, repo.get_containment_preflight(row.id))
+        return _campaign(row, repo.get_containment_preflight(row.id), repo.get_image_readiness(row.id), repo.usage_summary(row.id))
 
     @app.post("/v1/campaigns/{campaign_id}/cancel", status_code=202)
     def cancel_campaign(campaign_id: str, repo: Repository = Depends(get_repo)) -> dict[str, str]:
@@ -852,6 +881,7 @@ def create_app(
                 }
                 for event in repo.list_verifier_events(episode_id)
             ],
+            "usage_summary": repo.usage_summary(episode_id=episode_id),
             "model_invocations": [
                 {
                     "model_invocation_id": invocation.id,

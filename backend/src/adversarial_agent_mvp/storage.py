@@ -458,28 +458,33 @@ CAMPAIGN_TRANSITIONS: dict[str, set[str]] = {
         CampaignStatus.CANCELLING,
         CampaignStatus.FAILED,
         CampaignStatus.REJECTED,
+        CampaignStatus.BLOCKED,
     },
     CampaignStatus.VALIDATING: {
         CampaignStatus.READY,
         CampaignStatus.CANCELLING,
         CampaignStatus.FAILED,
         CampaignStatus.REJECTED,
+        CampaignStatus.BLOCKED,
     },
     CampaignStatus.READY: {
         CampaignStatus.RUNNING,
         CampaignStatus.CANCELLING,
         CampaignStatus.FAILED,
         CampaignStatus.REJECTED,
+        CampaignStatus.BLOCKED,
     },
     CampaignStatus.RUNNING: {
         CampaignStatus.CANCELLING,
         CampaignStatus.FAILED,
         CampaignStatus.COMPLETED,
+        CampaignStatus.BLOCKED,
     },
     CampaignStatus.CANCELLING: {CampaignStatus.FAILED, CampaignStatus.COMPLETED},
     CampaignStatus.FAILED: set(),
     CampaignStatus.COMPLETED: set(),
     CampaignStatus.REJECTED: set(),
+    CampaignStatus.BLOCKED: set(),
 }
 
 
@@ -874,6 +879,14 @@ class Repository:
             payload["checked_at"] = utc_iso(event.created_at)
         return payload
 
+    def get_image_readiness(self, campaign_id: str) -> dict[str, Any] | None:
+        with self.db.session() as session:
+            row = session.scalar(select(OperationalEvent).where(
+                OperationalEvent.aggregate_type == "campaign", OperationalEvent.aggregate_id == campaign_id,
+                OperationalEvent.event_type == "CAMPAIGN_IMAGE_READINESS",
+            ).order_by(OperationalEvent.created_at.desc()).limit(1))
+            return row.payload if row else None
+
     def get_containment_preflight(self, campaign_id: str) -> dict[str, Any] | None:
         with self.db.session() as session:
             event = session.scalar(
@@ -977,6 +990,7 @@ class Repository:
                 CampaignStatus.COMPLETED,
                 CampaignStatus.FAILED,
                 CampaignStatus.REJECTED,
+                CampaignStatus.BLOCKED,
             }:
                 return
             row.cancellation_requested = True
@@ -1786,6 +1800,7 @@ class Repository:
             CampaignStatus.COMPLETED,
             CampaignStatus.FAILED,
             CampaignStatus.REJECTED,
+            CampaignStatus.BLOCKED,
         }:
             return
         campaign.status = CampaignStatus.FAILED
@@ -2154,6 +2169,11 @@ class Repository:
         with self.db.session() as session:
             return session.get(OperationalEvent, event_id)
 
+    def usage_summary(self, campaign_id: str | None = None, *, episode_id: str | None = None) -> dict[str, Any]:
+        from .usage_reporting import summarize_usage
+
+        return summarize_usage(self.list_model_invocations(campaign_id=campaign_id, episode_id=episode_id))
+
     def campaign_metrics(self, campaign_id: str) -> dict[str, Any]:
         with self.db.session() as session:
             campaign = session.get(Campaign, campaign_id)
@@ -2195,6 +2215,7 @@ class Repository:
                 "effect_count": effect_count,
                 "finding_count": finding_count,
                 "tokens_used": campaign.tokens_used,
+                "usage_summary": self.usage_summary(campaign_id),
                 "cost_used": campaign.cost_used,
             }
 
