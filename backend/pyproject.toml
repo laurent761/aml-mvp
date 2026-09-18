@@ -30,10 +30,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "build>=1.2,<2",
-  "hypothesis>=6.120,<7",
-  "pytest>=8.3,<9",
-  "pytest-asyncio>=0.25,<1",
-  "pytest-cov>=6,<8",
   "pyright>=1.1,<2",
   "ruff>=0.9,<1",
 ]
@@ -56,24 +52,11 @@ packages = ["src/adversarial_agent_mvp", "src/aml_reference_target", "src/aml_ta
 
 [tool.hatch.build]
 exclude = [
-  "/.coverage",
-  "/.hypothesis",
-  "/.pytest_cache",
   "/.ruff_cache",
   "/.venv",
   "/*.db",
   "/dist",
   "/var",
-]
-
-[tool.pytest.ini_options]
-addopts = "-q --strict-markers --cov=adversarial_agent_mvp --cov=aml_reference_target --cov=aml_target_protocol --cov-report=term-missing --cov-fail-under=75"
-testpaths = ["tests"]
-asyncio_mode = "auto"
-markers = [
-  "containment: validates fail-closed isolation controls",
-  "integration: validates component integration",
-  "e2e: validates a complete campaign lifecycle",
 ]
 
 [tool.ruff]

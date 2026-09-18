@@ -13,7 +13,7 @@ tools.
 | Stop AML or fix a failed run | See steps 6–7 in [Run locally](#run-locally). |
 | Write Python scripts to run tests | Complete the local setup, then follow [Python SDK](#python-sdk). |
 | Repeat a result to see whether it happens again | Read [Repeat a previous experiment](#reproduction). |
-| Change AML's source code | Read [Change the code and test your changes](#development-and-checks). This is optional. |
+| Change AML's source code | Read [Change the code and check your changes](#development-and-checks). This is optional. |
 | Understand the system in detail | Open the [architecture guide](architecture-guide.html). |
 
 ### Words you will see
@@ -379,7 +379,7 @@ through `0005`; the replay flag itself requires no migration.
 
 <a id="development-and-checks"></a>
 
-## Change the code and test your changes
+## Change the code and check your changes
 
 **This section is only for people editing AML's source code.** If you only want to
 use AML, the Docker walkthrough above is enough.
@@ -444,6 +444,9 @@ shared storage, and a supervisor outside Docker Compose.
 
 ### Check your changes before sharing them
 
+Automated tests and their supporting setup are maintained on the
+`tests/project-suite` branch.
+
 These commands check for programming errors and confirm that the packages can be
 built. Run the group for the code you changed. Each block starts from the repository
 root and uses parentheses to return you there when it finishes. `set -e` stops the
@@ -455,14 +458,13 @@ group if a command fails, so fix that failure before running the remaining check
 (
   set -e
   cd backend
-  OTEL_ENABLED=false uv run pytest  # Run automated behavior tests.
   uv run ruff check .              # Check Python coding rules and common mistakes.
   uv run pyright                   # Check that values have the expected types.
   uv build                        # Build the installable backend package.
 )
 ```
 
-**Browser interface:** builds and tests need GNU `timeout` on your command search
+**Browser interface:** builds need GNU `timeout` on your command search
 path (`PATH`). On macOS with Homebrew, install and enable it in your current terminal:
 
 ```bash
@@ -478,7 +480,7 @@ Then run from the repository root:
   cd ui
   npm run lint       # Check JavaScript and TypeScript coding rules.
   npm run typecheck  # Check types and generate runtime declarations.
-  npm test           # Build the interface and run its automated tests.
+  npm run build      # Build the production interface.
 )
 ```
 
@@ -488,12 +490,10 @@ Then run from the repository root:
 uv build sdk
 ```
 
-Read each command's output. A nonzero exit code or a failed test means that check
-needs attention before you share the change. Some tests need disposable external
-services and will be skipped when those services are unavailable; a skipped test
-has not verified that behavior.
+Read each command's output. A nonzero exit code needs attention before you share
+the change.
 
-To build the UI without running tests, use `npm run build` from `ui/`. To serve that
+To build the UI, use `npm run build` from `ui/`. To serve that
 build, run `BACKEND_API_URL=http://localhost:8000 npm run start` from the same folder.
 
 ### If you changed this README or the architecture guide
@@ -540,9 +540,9 @@ training/restoration code. Fixture success does not establish model performance.
 | Directory | Contents |
 |---|---|
 | `backend/src/` | API, workers, Red/Blue, storage, verifiers, reference agent, and target protocol |
-| `backend/migrations/`, `backend/tests/` | Database migrations and backend checks |
+| `backend/migrations/` | Database migrations |
 | `sdk/` | Independent Python client and executable examples |
-| `ui/` | Web console, API proxy, reusable components, and UI tests |
+| `ui/` | Web console, API proxy, and reusable components |
 
 ## References
 
