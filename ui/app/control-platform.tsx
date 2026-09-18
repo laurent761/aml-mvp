@@ -4,10 +4,7 @@ import { UsagePanel, UsageBadge, AttackerModeNotice, combineUsage, type UsageSum
 
 import {
   Activity,
-  BookOpenText,
-  Coins,
   Compass,
-  Cpu,
   LockKeyhole,
   ScanEye,
   Workflow,
@@ -99,8 +96,6 @@ import {
   normalizeApiBase,
   shortId,
 } from "@/lib/api-client";
-import ResearchWorkspace from "./research-workspace";
-import GuideChat from "./guide-chat";
 import QuickstartTour from "./quickstart-tour";
 import type { TourSelection } from "@/lib/quickstart";
 
@@ -116,8 +111,7 @@ type View =
   | "experiments"
   | "evidence"
   | "system"
-  | "tour"
-  | "guide";
+  | "tour";
 
 interface Overview {
   counts: Record<string, number>;
@@ -290,7 +284,6 @@ const emptyData: PlatformData = {
 
 const navItems: { id: View; label: string; icon: typeof Gauge; group?: string }[] = [
   { id: "tour", label: "Quickstart tour", icon: Compass, group: "GET STARTED" },
-  { id: "guide", label: "Ask AML", icon: BookOpenText },
   { id: "overview", label: "Adversarial Overview", icon: Gauge, group: "WORKSPACE" },
   { id: "targets", label: "Targets", icon: Target },
   { id: "campaigns", label: "Attack Campaigns", icon: Activity },
@@ -461,7 +454,10 @@ export default function ControlPlatform() {
 
   return (
     <div className="control-shell">
-      <a className="skip-link" href="#main-content">Skip to content</a>
+      <a className="skip-link" href="#main-content" onClick={(event) => {
+        event.preventDefault();
+        document.getElementById("main-content")?.focus();
+      }}>Skip to content</a>
       <aside className={`nav-rail ${mobileNav ? "nav-rail--open" : ""}`} aria-label="Primary navigation">
         <div className="brand-lockup">
           <div className="brand-mark aml-mark" aria-hidden="true">A</div>
@@ -495,7 +491,7 @@ export default function ControlPlatform() {
             <div><span>AML <span className="breadcrumb-slash">/</span> Research workspace</span><h1>{title}</h1></div>
           </div>
           <div className="topbar-actions">
-            {view !== "guide" && view !== "tour" ? <label className="global-search">
+            {view !== "tour" ? <label className="global-search">
               <Search aria-hidden="true" />
               <span className="sr-only">Filter current view</span>
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter this view" />
@@ -511,9 +507,8 @@ export default function ControlPlatform() {
           {!connected && !loading ? <ConnectionBanner error={error} onOpen={() => navigate("system")} /> : null}
           {connected && error && !loading ? <DataWarning message={error} /> : null}
           <div hidden={view !== "tour"}><QuickstartTour key={`${apiBase}:${connectionRevision}`} apiBase={apiBase} connected={connected} tasks={data.tasks} onRefresh={refresh} onNavigate={navigate} onCampaign={(selection) => { setTourDraft(selection); setCampaignOpen(true); }} /></div>
-          {view === "tour" ? null : view === "guide" ? <GuideChat key={`${apiBase}:${connectionRevision}`} apiBase={apiBase} /> : loading && !data.overview && !data.targets.length && !data.campaigns.length && !data.episodes.length ? <LoadingSurface /> : (
+          {view === "tour" ? null : loading && !data.overview && !data.targets.length && !data.campaigns.length && !data.episodes.length ? <LoadingSurface /> : (
             <>
-              {["targets", "experiments", "lab", "trajectories", "learning", "evidence", "system"].includes(view) ? <ResearchWorkspace key={`${apiBase}:${connectionRevision}:${view}`} apiBase={apiBase} view={view} search={search} /> : null}
               {view === "overview" ? <OverviewView data={data} connected={connected} navigate={navigate} onTarget={() => setTargetOpen(true)} onCampaign={() => setCampaignOpen(true)} onSelectCampaign={setSelectedCampaign} onSelectFinding={setSelectedFinding} /> : null}
               {view === "targets" ? <TargetsView data={data} apiBase={apiBase} search={search} onTarget={() => setTargetOpen(true)} onVersion={() => setVersionOpen(true)} onTask={() => setTaskOpen(true)} onInspect={setInspection} /> : null}
               {view === "campaigns" ? <CampaignsView data={data} search={search} onCreate={() => setCampaignOpen(true)} onSelect={setSelectedCampaign} /> : null}
@@ -946,7 +941,7 @@ function InspectorSheet({ inspection, apiBase, onOpenChange }: { inspection: Ins
 function ConnectionDialog({ open, value, onOpenChange, onSave }: { open: boolean; value: string; onOpenChange: (open: boolean) => void; onSave: (value: string, token: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const tokenRef = useRef<HTMLInputElement>(null);
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>Control API connection</DialogTitle><DialogDescription>Use the same origin for the integrated deployment, or enter an allowed backend origin for development.</DialogDescription></DialogHeader><div className="form-stack"><Label htmlFor="api-origin">API origin</Label><Input ref={inputRef} id="api-origin" defaultValue={value} placeholder="Same origin" /><p className="field-help">Examples: blank for the packaged platform, or http://localhost:8000.</p><Label htmlFor="research-token">Research access token</Label><Input ref={tokenRef} id="research-token" type="password" autoComplete="off" placeholder="Provided by your operator" /><p className="field-help">Kept in this tab until you reload. Use the same research account as your SDK.</p></div><DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button onClick={() => onSave(inputRef.current?.value ?? value, tokenRef.current?.value ?? "")}>Save and reconnect</Button></DialogFooter></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>Control API connection</DialogTitle><DialogDescription>Use the same origin for the integrated deployment, or enter an allowed backend origin for development.</DialogDescription></DialogHeader><div className="form-stack"><Label htmlFor="api-origin">API origin</Label><Input ref={inputRef} id="api-origin" defaultValue={value} placeholder="Same origin" /><p className="field-help">Examples: blank for the packaged platform, or http://localhost:8000.</p><Label htmlFor="research-token">Research access token</Label><Input ref={tokenRef} id="research-token" type="password" autoComplete="off" placeholder="Provided by your operator" /><p className="field-help">Kept in this tab until you reload.</p></div><DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button onClick={() => onSave(inputRef.current?.value ?? value, tokenRef.current?.value ?? "")}>Save and reconnect</Button></DialogFooter></DialogContent></Dialog>;
 }
 
 const targetManifest = JSON.stringify({

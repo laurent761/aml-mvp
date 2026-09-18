@@ -223,7 +223,8 @@
           <figcaption><span class="eyebrow">Architecture tree</span><strong>Who owns what</strong></figcaption>
           <ul class="tree"><li><span class="root-label">AML</span><ul>
             <li><strong>Research control</strong><ul>
-              <li><strong>SDK + UI</strong><small>External action loop and record inspection.</small></li>
+              <li><strong>Web console</strong><small>Targets, campaigns, trajectories, findings and evidence.</small></li>
+              <li><strong>Research HTTP API</strong><small>External sessions and training records; outside the POC console.</small></li>
               <li><strong>Approved attacker runtime</strong><small>Generates actions when called by managed Red.</small></li>
             </ul></li>
             <li><strong>Trusted control plane</strong><ul>
@@ -276,6 +277,7 @@
 
     <section class="section" id="learning" aria-labelledby="learning-title">
       <span class="eyebrow">04 / Research flow</span><h2 id="learning-title">Keep the lineage intact.</h2>
+      <p class="note">This extended flow is available through backend APIs. The POC console shows campaign evidence and strategy memory; it does not include session, dataset, checkpoint or paired-evaluation record browsers.</p>
       <div class="two">
         <figure class="tree-panel">
           <figcaption><span class="eyebrow">Research tree</span><strong>Records → derived artifacts</strong></figcaption>
@@ -299,7 +301,7 @@
           <div class="panel"><span class="eyebrow">Comparison</span><h3>Inspect what ran.</h3><p>Compare verified success and cost. Account for failed and indeterminate executions before claiming improvement.</p></div>
         </div>
       </div>
-      <div class="source"><a href="README.md#python-sdk">SDK workflows ↗</a><a href="sdk/examples/workflows.py">Research examples ↗</a><a href="README.md#reproduction">Replay ↗</a></div>
+      <div class="source"><a href="README.md#api-access">API access ↗</a><a href="README.md#reproduction">Replay ↗</a></div>
     </section>
 
     <section class="section" id="operations" aria-labelledby="operations-title">

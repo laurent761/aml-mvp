@@ -83,18 +83,6 @@ class Settings(BaseSettings):
     research_upload_root: Path = Path("./var/uploads")
     research_upload_expiry_seconds: int = Field(default=86400, ge=60)
 
-    # Documentation generation is separate from target/attacker model configuration.
-    guide_corpus_path: Path | None = None
-    guide_model_base_url: str = "https://api.openai.com/v1"
-    guide_model_name: str = "gpt-4.1-mini"
-    guide_model_api_key: SecretStr | None = None
-    guide_model_max_output_tokens: int = Field(default=1800, ge=256, le=4096)
-    guide_model_token_parameter: Literal["max_tokens", "max_completion_tokens"] = "max_tokens"
-    guide_model_json_mode: bool = True
-    guide_model_timeout_seconds: int = Field(default=45, ge=1, le=120)
-    guide_model_max_concurrency: int = Field(default=2, ge=1, le=16)
-    guide_requests_per_minute: int = Field(default=20, ge=1, le=120)
-
     attacker_model_provider: Literal[
         "heuristic",
         "hosted_openai_compatible",
@@ -144,8 +132,6 @@ class Settings(BaseSettings):
         "attacker_model_base_url",
         "attacker_model_name",
         "attacker_model_api_key",
-        "guide_model_api_key",
-        "guide_corpus_path",
         "target_model_base_url",
         "target_model_name",
         "target_model_api_key",

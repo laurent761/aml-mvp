@@ -40,7 +40,6 @@ mlflow-server = [
 ]
 
 [project.scripts]
-adversarial-guide = "adversarial_agent_mvp.guide_corpus:main"
 adversarial-api = "adversarial_agent_mvp.apps.api:run"
 adversarial-worker = "adversarial_agent_mvp.apps.worker:run"
 adversarial-blue-gateway = "adversarial_agent_mvp.apps.blue_gateway:run"
@@ -68,7 +67,7 @@ select = ["E", "F", "I", "B", "UP"]
 ignore = ["E501", "B008"]
 
 [tool.pyright]
-include = ["src"]
+include = ["src", "scripts", "migrations"]
 pythonVersion = "3.12"
 typeCheckingMode = "basic"
 venvPath = "."

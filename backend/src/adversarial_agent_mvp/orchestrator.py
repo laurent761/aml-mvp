@@ -50,6 +50,7 @@ class EnvironmentBuilder(Protocol):
         manifest: TargetManifest,
         policies: list[PolicyDocument],
         capsule_handle: CapsuleHandle | None,
+        /,
     ) -> BlackBoxEnvironment: ...
 
 
