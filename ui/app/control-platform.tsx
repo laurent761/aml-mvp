@@ -99,7 +99,6 @@ import {
   normalizeApiBase,
   shortId,
 } from "@/lib/api-client";
-import ResearchWorkspace from "./research-workspace";
 import GuideChat from "./guide-chat";
 import QuickstartTour from "./quickstart-tour";
 import type { TourSelection } from "@/lib/quickstart";
@@ -513,7 +512,6 @@ export default function ControlPlatform() {
           <div hidden={view !== "tour"}><QuickstartTour key={`${apiBase}:${connectionRevision}`} apiBase={apiBase} connected={connected} tasks={data.tasks} onRefresh={refresh} onNavigate={navigate} onCampaign={(selection) => { setTourDraft(selection); setCampaignOpen(true); }} /></div>
           {view === "tour" ? null : view === "guide" ? <GuideChat key={`${apiBase}:${connectionRevision}`} apiBase={apiBase} /> : loading && !data.overview && !data.targets.length && !data.campaigns.length && !data.episodes.length ? <LoadingSurface /> : (
             <>
-              {["targets", "experiments", "lab", "trajectories", "learning", "evidence", "system"].includes(view) ? <ResearchWorkspace key={`${apiBase}:${connectionRevision}:${view}`} apiBase={apiBase} view={view} search={search} /> : null}
               {view === "overview" ? <OverviewView data={data} connected={connected} navigate={navigate} onTarget={() => setTargetOpen(true)} onCampaign={() => setCampaignOpen(true)} onSelectCampaign={setSelectedCampaign} onSelectFinding={setSelectedFinding} /> : null}
               {view === "targets" ? <TargetsView data={data} apiBase={apiBase} search={search} onTarget={() => setTargetOpen(true)} onVersion={() => setVersionOpen(true)} onTask={() => setTaskOpen(true)} onInspect={setInspection} /> : null}
               {view === "campaigns" ? <CampaignsView data={data} search={search} onCreate={() => setCampaignOpen(true)} onSelect={setSelectedCampaign} /> : null}

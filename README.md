@@ -439,10 +439,13 @@ generating answers also requires the backend's guide-model configuration.
 ## Current implementation
 
 The project includes one Python finance agent, which can run as a scripted example
-or use a configured AI model. AML stores test sessions, action histories, and results.
-It also supports exporting datasets, recording model checkpoints, comparing evaluations,
-and replaying experiments. Resetting a research session starts a new experiment in
-a fresh isolated environment and keeps previous records.
+or use a configured AI model. The POC console supports target registration, attack
+campaigns, experiments, trajectories, verified findings, evidence, replay, and
+strategy memory.
+
+The backend retains research-session, dataset, checkpoint, and evaluation APIs;
+the POC console does not include their record browsers. Existing stored records
+remain available through the API.
 
 Real-model acceptance, broader benchmarks, verified checkpoint loading, clean image
 build validation, and a production Firecracker/KVM runner remain outstanding.
