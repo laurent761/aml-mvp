@@ -37,7 +37,7 @@ class Runner:
                 labels[name] = label_value
         return labels
 
-    async def run(self, *args, timeout=30):
+    async def run(self, *args, timeout: float = 30):
         self.calls.append(args)
         if args[0] == "info":
             return "linux/arm64"
@@ -209,7 +209,7 @@ class InventoryRunner:
             RESOURCE_ROLE_LABEL: role,
         }
 
-    async def run(self, *args, timeout=30):
+    async def run(self, *args, timeout: float = 30):
         if args[:2] == ("ps", "-aq"):
             return "\n".join(self.containers)
         if args[:3] == ("network", "ls", "-q"):
@@ -277,7 +277,7 @@ async def test_cancellation_during_create_still_removes_partial_resources():
             super().__init__()
             self.target_started = asyncio.Event()
 
-        async def run(self, *args, timeout=30):
+        async def run(self, *args, timeout: float = 30):
             if args and args[0] == "run" and ("target@sha256:" + "a" * 64) in args:
                 self.target_started.set()
                 await asyncio.Event().wait()

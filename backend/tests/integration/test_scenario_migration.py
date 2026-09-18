@@ -35,9 +35,13 @@ def test_upgrade_existing_database_register_bundle_and_downgrade(tmp_path, monke
             catalog.get_public(registered.scenario_version_id)["targets"][0]["execution_mode"]
             == "fixture"
         )
-        assert repository.get_target(previous.id).name == "existing customer target"
+        stored_target = repository.get_target(previous.id)
+        assert stored_target is not None
+        assert stored_target.name == "existing customer target"
         command.downgrade(config, "0003")
         assert "scenario_versions" not in inspect(database.engine).get_table_names()
-        assert repository.get_target(previous.id).name == "existing customer target"
+        stored_target = repository.get_target(previous.id)
+        assert stored_target is not None
+        assert stored_target.name == "existing customer target"
     finally:
         database.engine.dispose()

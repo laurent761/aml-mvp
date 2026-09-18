@@ -35,7 +35,7 @@ class ImageRunner:
         self.architecture = architecture
         self.calls = []
 
-    async def run(self, *args, timeout=30):
+    async def run(self, *args, timeout: float = 30):
         self.calls.append(args)
         if args[0] == "info":
             return "linux/aarch64"
@@ -82,6 +82,7 @@ async def test_local_id_is_never_treated_as_registry_digest():
     runner = ImageRunner(missing=True)
     result = await inspect_image(runner, IMAGE_ID, restore=True)
     assert result.status == "UNAVAILABLE" and not result.recoverable
+    assert result.technical_detail is not None
     assert "legacy" in result.technical_detail.lower()
     assert not any(call[0] == "pull" for call in runner.calls)
 
@@ -112,7 +113,7 @@ async def test_mutable_tags_are_never_resolved_to_a_new_version():
 @pytest.mark.asyncio
 async def test_daemon_error_is_not_misreported_as_missing_image():
     class Disconnected(ImageRunner):
-        async def run(self, *args, timeout=30):
+        async def run(self, *args, timeout: float = 30):
             raise CapsuleError("Docker connection failed")
 
     result = await inspect_image(Disconnected(), IMAGE, restore=True)
@@ -128,6 +129,9 @@ async def test_blocked_campaign_creates_zero_experiments_and_does_not_retry(
     class MissingLifecycle:
         checks = 0
 
+        async def destroy(self, handle):
+            raise AssertionError("must not destroy an unprovisioned experiment")
+
         async def prepare(self, manifest):
             self.checks += 1
             raise ImageUnavailable(
@@ -138,7 +142,7 @@ async def test_blocked_campaign_creates_zero_experiments_and_does_not_retry(
                 )
             )
 
-        async def provision(self, *args):
+        async def provision(self, episode_id, manifest):
             raise AssertionError("must not provision an experiment")
 
     runtime = MissingLifecycle()
@@ -173,7 +177,7 @@ async def test_image_disappears_after_preflight_blocks_once(repository, manifest
                 checked_at=datetime.now(UTC),
             )
 
-        async def provision(self, *args):
+        async def provision(self, episode_id, manifest):
             self.provisions += 1
             raise ImageUnavailable(
                 unavailable(manifest.image, "TARGET_IMAGE_MISSING", "Target image unavailable")
@@ -214,7 +218,7 @@ async def test_supervisor_auth_and_structured_error_round_trip():
 @pytest.mark.asyncio
 async def test_cancelled_check_propagates_cancellation():
     class Cancelled(ImageRunner):
-        async def run(self, *args, timeout=30):
+        async def run(self, *args, timeout: float = 30):
             raise asyncio.CancelledError
 
     with pytest.raises(asyncio.CancelledError):

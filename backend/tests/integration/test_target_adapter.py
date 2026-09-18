@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from adversarial_agent_mvp.contracts import CapsuleHandle, RedAction
+from adversarial_agent_mvp.contracts import AttackChannel, CapsuleHandle, RedAction
 from adversarial_agent_mvp.target_adapter import HttpTargetAdapter
 
 
@@ -75,7 +75,7 @@ async def test_capsule_adapter_uses_only_supervisor_ingress(manifest, task):
         reset = await adapter.reset(task.random_seed)
         assert reset.target_response == "ready"
         observation, effects = await adapter.invoke(
-            RedAction(channel="user_message", payload={"text": "hello"}),
+            RedAction(channel=AttackChannel.USER_MESSAGE, payload={"text": "hello"}),
             1,
         )
         assert observation.target_response == "ok"

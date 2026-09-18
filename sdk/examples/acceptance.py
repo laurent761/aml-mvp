@@ -46,10 +46,12 @@ async def main(args):
                 public_history=[fresh.public_observation.model_dump()], provenance="generated")
             attack = await episode.step(action, generation_id=generation["id"])
             assert attack.outcome.terminal_success is True
+            assert attack.public_observation.delivery_receipt is not None
             assert attack.public_observation.delivery_receipt["applied"] is True
             trajectory = await episode.trajectory()
             assert len(trajectory) == 4
             recovered = await client.operation(trajectory[-1]["id"])
+            assert recovered.result is not None
             assert recovered.result["outcome"]["terminal_success"] is True
             session_id = episode.id
         with tempfile.TemporaryDirectory(prefix="aml-sdk-acceptance-") as directory:

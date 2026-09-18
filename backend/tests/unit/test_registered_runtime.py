@@ -15,12 +15,15 @@ async def test_failed_raw_response_and_input_rejection_do_not_reuse_previous_usa
     try:
         with pytest.raises(ValueError):
             await runtime.propose({"observations": []}, 1)
+        assert runtime.last_generation is not None
         assert runtime.last_generation["raw_response"] == "malformed generation payload"
+        assert runtime.last_usage is not None
         assert runtime.last_usage["tokens"] > 0
         with pytest.raises(RuntimeError, match="input exceeded"):
             await runtime.propose({"observations": [{"text": "x" * 3000}]}, 2)
         assert len(calls) == 1
         assert runtime.last_usage is None
+        assert runtime.last_generation is not None
         assert runtime.last_generation["raw_response"] is None
         assert runtime.last_generation["seed"] == 2
     finally:

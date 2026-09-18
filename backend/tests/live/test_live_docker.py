@@ -37,7 +37,7 @@ def _docker_prerequisites() -> tuple[str, str, list[str]]:
 
 
 @pytest.mark.asyncio
-async def test_live_capsule_launch_has_one_internal_network_and_cleans_up():
+async def test_live_capsule_launch_has_one_internal_network_and_cleans_up(isolated_docker_namespace):
     target_image, blue_image, entrypoint = _docker_prerequisites()
     runtime = DockerCapsuleRuntime(blue_image=blue_image)
     handle = None
@@ -56,7 +56,19 @@ async def test_live_capsule_launch_has_one_internal_network_and_cleans_up():
         proof = await runtime.verify_network_boundary(handle)
         assert proof.verified
         assert proof.network_internal
+        # Inspect actual labels: neither application supervisors nor other test
+        # runs may treat our disposable capsules as their orphaned resources.
+        assert handle.blue_container_id is not None
+        documents = json.loads(await runtime.runner.run(
+            "inspect", handle.target_container_id, handle.blue_container_id, handle.network_id
+        ))
+        for document in documents:
+            labels = document.get("Config", {}).get("Labels") or document.get("Labels") or {}
+            assert labels[isolated_docker_namespace] == "true"
+            assert "io.adversarial-agent-mvp.capsule.managed" not in labels
         inventory = await runtime.inventory()
+        assert {item.capsule_id for item in inventory} == {handle.capsule_id}
+        assert len(inventory) == 3
         owned = [item for item in inventory if item.capsule_id == handle.capsule_id]
         assert {item.role for item in owned} == {"blue", "target", "network"}
         reconciliation = await runtime.reconcile_orphans({handle.capsule_id})

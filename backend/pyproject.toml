@@ -67,7 +67,7 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-q --strict-markers --cov=adversarial_agent_mvp --cov=aml_reference_target --cov=aml_target_protocol --cov-report=term-missing --cov-fail-under=75"
+addopts = "-q --strict-config --strict-markers --cov=adversarial_agent_mvp --cov=aml_reference_target --cov=aml_target_protocol --cov-report=term-missing --cov-fail-under=85"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
@@ -85,7 +85,7 @@ select = ["E", "F", "I", "B", "UP"]
 ignore = ["E501", "B008"]
 
 [tool.pyright]
-include = ["src"]
+include = ["src", "tests", "scripts", "migrations", "../sdk", "../ui/e2e/server.py"]
 pythonVersion = "3.12"
 typeCheckingMode = "basic"
 venvPath = "."

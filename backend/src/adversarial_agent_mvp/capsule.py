@@ -19,7 +19,7 @@ from .contracts import (
     RuntimeContainmentProof,
     new_id,
 )
-from .image_readiness import ImageReadiness, ImageUnavailable, inspect_image
+from .image_readiness import ImageCommandRunner, ImageReadiness, ImageUnavailable, inspect_image
 from .inference import TargetInferenceBroker
 from .inference_contracts import INFERENCE_DESTINATION, InferenceWork
 from .security import CapabilityTokenService, redact_sensitive
@@ -194,7 +194,7 @@ class DockerCapsuleRuntime:
 
     def __init__(
         self,
-        runner: DockerCommandRunner | None = None,
+        runner: ImageCommandRunner | None = None,
         blue_image: str = "blue-gateway:local",
         *,
         capability_signing_key: str | None = None,

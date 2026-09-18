@@ -12,7 +12,11 @@
     "start": "WRANGLER_WRITE_LOGS=false vinext start",
     "test": "npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
-    "typecheck": "node scripts/typecheck.mjs"
+    "typecheck": "node scripts/typecheck.mjs",
+    "test:unit": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:run": "playwright test",
+    "test:all": "npm run build && npm run test:unit && npm run test:e2e:run"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",
@@ -28,7 +32,9 @@
     "tailwind-merge": "3.6.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@cloudflare/vite-plugin": "1.37.1",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",

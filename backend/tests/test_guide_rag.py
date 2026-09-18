@@ -20,7 +20,7 @@ from adversarial_agent_mvp.guide_corpus import (
 )
 from adversarial_agent_mvp.guide_rag import ChatQuestion, GuideError, GuideIndex, GuideService
 from adversarial_agent_mvp.research_auth import ResearchAuthMiddleware
-from adversarial_agent_mvp.settings import Settings
+from tests.helpers import IsolatedSettings
 
 PASSAGE = "Sandbox reset restores the leased capsule baseline. Inference spend remains charged across resets."
 
@@ -39,7 +39,7 @@ def index(tmp_path: Path) -> GuideIndex:
 
 
 def settings(**kwargs):
-    return Settings(_env_file=None, guide_model_api_key=SecretStr("test-secret"), **kwargs)
+    return IsolatedSettings(guide_model_api_key=SecretStr("test-secret"), **kwargs)
 
 
 def completion(answer=None, finish="stop"):
@@ -160,7 +160,7 @@ def test_request_bounds():
 
 
 def test_operator_api_and_missing_key(index):
-    config = Settings(_env_file=None, research_auth_required=True, research_auth_tokens={hashlib.sha256(token.encode()).hexdigest(): {"owner_id": token, "scopes": [scope]} for token, scope in [("operator-token", "operator"), ("research-token", "research")]})
+    config = IsolatedSettings(research_auth_required=True, research_auth_tokens={hashlib.sha256(token.encode()).hexdigest(): {"owner_id": token, "scopes": [scope]} for token, scope in [("operator-token", "operator"), ("research-token", "research")]})
     app = FastAPI()
     install_guide_api(app, config)
     app.state.guide_service.index = index

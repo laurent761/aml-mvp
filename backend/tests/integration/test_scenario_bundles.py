@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from adversarial_agent_mvp.api import create_app
 from adversarial_agent_mvp.bundle_cli import reference_bundle
-from adversarial_agent_mvp.contracts import AttackTask
+from adversarial_agent_mvp.contracts import AttackChannel, AttackTask
 from adversarial_agent_mvp.scenarios import ScenarioCatalog, TargetBundle
 from adversarial_agent_mvp.settings import Settings
 from adversarial_agent_mvp.storage import ScenarioVersionRow, TargetBundleRow
@@ -154,7 +154,7 @@ def test_task_cannot_override_scenario_conditions(repository, bundle, change):
     elif change == "verifier":
         task.forbidden_states[0].parameters = {"labels": ["other"]}
     elif change == "surface":
-        task.available_channels = ["uploaded_document"]
+        task.available_channels = [AttackChannel.UPLOADED_DOCUMENT]
     else:
         task.scenario_version_id = "missing"
     with pytest.raises((KeyError, ValueError)):

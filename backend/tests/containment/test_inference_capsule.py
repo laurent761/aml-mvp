@@ -16,7 +16,7 @@ class InferenceRunner(Runner):
         self.environment = {}
         self.inject_credential = inject_credential
 
-    async def run(self, *args, timeout=30):
+    async def run(self, *args, timeout: float = 30):
         result = await super().run(*args, timeout=timeout)
         if args[0] == "run":
             self.environment[result] = [
@@ -80,6 +80,7 @@ async def test_relay_lifecycle_is_part_of_health_and_cleanup():
     handle = await runtime.create(spec(inference_profile=broker.profile))
     try:
         proof = handle.runtime_containment_proof
+        assert proof is not None
         assert proof.inference_transport == "supervisor_queue"
         assert proof.inference_credentials_isolated
         relay = runtime._inference_relays[handle.capsule_id]

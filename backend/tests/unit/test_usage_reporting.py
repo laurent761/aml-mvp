@@ -4,7 +4,7 @@ from adversarial_agent_mvp.models import ModelUsage, OpenAICompatibleAttackerMod
 from adversarial_agent_mvp.usage_reporting import invocation_usage, summarize_usage
 
 
-def invocation(*, provider="hosted_openai_compatible", model="model", tokens=100, cost=0, **config):
+def invocation(*, provider="hosted_openai_compatible", model="model", tokens=100, cost: float = 0, **config):
     return SimpleNamespace(provider=provider, model=model, tokens=tokens, cost=cost, configuration=config)
 
 

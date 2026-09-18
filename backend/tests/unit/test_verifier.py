@@ -27,7 +27,9 @@ async def test_terminal_rules(kind, event):
     verifier = DeterministicVerifier()
     await verifier.initialize(make_task(kind))
     await verifier.process_event(event)
-    assert verifier.terminal_signal().terminal_success
+    signal = verifier.terminal_signal()
+    assert signal is not None
+    assert signal.terminal_success
 
 
 @pytest.mark.asyncio

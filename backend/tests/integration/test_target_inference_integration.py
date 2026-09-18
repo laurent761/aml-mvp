@@ -28,6 +28,8 @@ from tests.unit.test_target_inference import configured
 class LocalRelay(DockerCapsuleRuntime):
     """Exercise the production relay protocol over ASGI instead of docker exec."""
 
+    client: httpx.AsyncClient
+
     async def gateway_request(self, handle, method, path, **kwargs):
         return await self.client.request(
             method,
@@ -95,6 +97,7 @@ async def test_reference_target_uses_broker_then_virtual_tools_with_private_usag
                 base_url="http://blue:8080/v1/inference/", transport=httpx.ASGITransport(app=blue)
             ) as model_client:
                 agent.tools.client = client
+                assert isinstance(agent.model, BrokerCompletionModel)
                 agent.model.client = model_client
                 adapter = HttpTargetAdapter(
                     bundle.manifest,

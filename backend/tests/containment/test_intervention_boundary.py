@@ -7,9 +7,9 @@ import pytest
 
 from adversarial_agent_mvp.blue_gateway import create_blue_app
 from adversarial_agent_mvp.bundle_cli import reference_bundle
-from adversarial_agent_mvp.contracts import AttackTask, GatewayEpisodeBootstrap
+from adversarial_agent_mvp.contracts import AttackChannel, AttackTask, GatewayEpisodeBootstrap
 from adversarial_agent_mvp.security import CapabilityTokenService
-from adversarial_agent_mvp.settings import Settings
+from tests.helpers import IsolatedSettings
 
 pytestmark = pytest.mark.containment
 
@@ -17,7 +17,7 @@ pytestmark = pytest.mark.containment
 @asynccontextmanager
 async def gateway(handler):
     bundle = reference_bundle("sha256:" + "a" * 64)
-    settings = Settings(_env_file=None, capability_signing_key="x" * 32, otel_enabled=False)
+    settings = IsolatedSettings(capability_signing_key="x" * 32, otel_enabled=False)
     app = create_blue_app(
         settings,
         supervisor_token="trusted-supervisor",
@@ -35,13 +35,13 @@ async def gateway(handler):
                 target_version_id="tv1",
                 objective="test delivery",
                 forbidden_states=bundle.ground_truth.forbidden_states,
-                available_channels=[s.channel for s in bundle.scenario.surfaces],
+                available_channels=[AttackChannel(s.channel) for s in bundle.scenario.surfaces],
             ),
             target_base_url="http://target:8081",
             target_health_path="/healthz",
             target_invoke_path="/invoke",
             target_reset_path="/reset",
-            intervention_surfaces=bundle.scenario.surfaces,
+            intervention_surfaces=list(bundle.scenario.surfaces),
             initial_world_state=bundle.ground_truth.initial_world_state,
             identities=bundle.manifest.identity_context,
         )

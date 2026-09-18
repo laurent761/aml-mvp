@@ -103,7 +103,7 @@ async def test_worker_retries_then_reconciles_campaign_failure(
             ),
             repository,
         )
-        worker.runner = AlwaysFails()
+        monkeypatch.setattr(worker, "runner", AlwaysFails())
 
         assert await worker.run_once()
         first = campaign_job(repository, campaign.id)
@@ -254,7 +254,7 @@ async def test_cancellation_during_provisioning_destroys_before_terminal_marker(
             self.handle: CapsuleHandle | None = None
             self.destroyed: list[CapsuleHandle | None] = []
 
-        async def provision(self, episode_id, _manifest):
+        async def provision(self, episode_id, manifest):
             self.handle = CapsuleHandle(
                 capsule_id="capsule-cancelled",
                 episode_id=episode_id,
@@ -305,7 +305,10 @@ async def test_episode_close_retries_destroy_and_is_idempotent(repository, manif
         def __init__(self):
             self.calls = 0
 
-        async def destroy(self, _handle):
+        async def provision(self, episode_id, manifest):
+            raise AssertionError("already provisioned")
+
+        async def destroy(self, handle):
             self.calls += 1
             if self.calls == 1:
                 raise RuntimeError("cleanup temporarily unavailable")

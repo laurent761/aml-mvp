@@ -22,12 +22,12 @@ def test_resource_limit_round_trip(memory_mb):
 
 def test_unknown_fields_are_rejected():
     with pytest.raises(ValidationError):
-        PublicObservation(turn_number=0, hidden_verifier_state="leak")
+        PublicObservation.model_validate({"turn_number": 0, "hidden_verifier_state": "leak"})
 
 
 def test_transform_decision_requires_arguments():
     with pytest.raises(ValidationError):
-        PolicyDecision(decision="transform", reason_code="X")
+        PolicyDecision.model_validate({"decision": "transform", "reason_code": "X"})
 
 
 def test_task_budgets_must_be_positive():
@@ -42,7 +42,7 @@ def test_task_budgets_must_be_positive():
 
 
 def test_red_action_defaults_are_unique():
-    left = RedAction(channel="user_message", payload={"text": "a"})
-    right = RedAction(channel="user_message", payload={"text": "a"})
+    left = RedAction(channel=AttackChannel.USER_MESSAGE, payload={"text": "a"})
+    right = RedAction(channel=AttackChannel.USER_MESSAGE, payload={"text": "a"})
     assert left.action_id != right.action_id
 

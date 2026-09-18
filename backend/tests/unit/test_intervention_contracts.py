@@ -86,6 +86,7 @@ def test_response_slot_occurrence_and_missing_or_non_string_leaf_fail_closed():
         success=True,
         result={"file": {"content": "original", "owner": "trusted"}},
     )
+    assert attempt.plan is not None
     assert delivery.overlay(effect(1), public, attempt.plan.delivery_id) == public
     changed = delivery.overlay(effect(2), public, attempt.plan.delivery_id)
     assert changed.result == {"file": {"content": "replacement", "owner": "trusted"}}
@@ -102,6 +103,7 @@ def test_response_slot_occurrence_and_missing_or_non_string_leaf_fail_closed():
             }
         )
         original = public.model_copy(update={"result": result})
+        assert pending.plan is not None
         assert controller.overlay(effect(1), original, pending.plan.delivery_id) == original
         assert controller.finish(pending).status == "unavailable_slot"
 
@@ -125,7 +127,7 @@ async def test_legacy_scenario_hashes_and_message_targets_remain_compatible():
 
 
 def test_receipts_cannot_claim_applied_without_exact_content_or_evidence():
-    delivery = InterventionDelivery("e", "scenario", bundle().scenario.surfaces)
+    delivery = InterventionDelivery("e", "scenario", list(bundle().scenario.surfaces))
     attempt = delivery.prepare(
         {
             "action_id": "a",
@@ -133,6 +135,7 @@ def test_receipts_cannot_claim_applied_without_exact_content_or_evidence():
             "payload": {"document_name": "missing.txt", "content": "hello"},
         }
     )
+    assert attempt.receipt is not None
     raw = attempt.receipt.model_dump()
     for change in (
         {"applied": True},

@@ -1,5 +1,6 @@
 import asyncio
 from types import SimpleNamespace
+from unittest.mock import create_autospec
 
 import pytest
 
@@ -33,6 +34,7 @@ from adversarial_agent_mvp.red_contracts import (
     RedExperimentConfig,
     SearchConfig,
 )
+from adversarial_agent_mvp.storage import Repository
 
 
 def task(**changes) -> AttackTask:
@@ -78,8 +80,8 @@ class TrackingEnvironment:
         self.turn = 0
         self.closed = False
 
-    async def reset(self, current_task):
-        self.seed = current_task.random_seed
+    async def reset(self, task):
+        self.seed = task.random_seed
         self.turn = 0
         return PublicObservation(target_response="ready", turn_number=0)
 
@@ -512,25 +514,11 @@ async def test_model_token_deltas_are_applied_only_to_new_candidate_steps():
 
 
 def test_repository_observer_persists_live_priority_exactly():
-    class Repository:
-        def __init__(self):
-            self.summary = None
-            self.linked = None
-
-        def add_trajectory_summary(self, episode_id, document, score):
-            self.summary = (episode_id, document, score)
-
-        def get_episode_step(self, episode_id, step_index):
-            assert (episode_id, step_index) == ("episode-1", 1)
-            return SimpleNamespace(id="step-1")
-
-        def link_model_invocations(self, invocation_ids, episode_id, *, step_id=None):
-            self.linked = (invocation_ids, episode_id, step_id)
-
-        def add_event(self, *args):
-            raise AssertionError("episode event should be persisted as a trajectory summary")
-
-    repository = Repository()
+    repository = create_autospec(Repository, instance=True)
+    repository.get_episode_step.return_value = SimpleNamespace(id="step-1")
+    repository.add_event.side_effect = AssertionError(
+        "episode event should be persisted as a trajectory summary"
+    )
     observer = RepositorySearchObserver(
         repository,
         "campaign-1",
@@ -557,13 +545,15 @@ def test_repository_observer_persists_live_priority_exactly():
             },
         )
     )
-    assert repository.summary[2] == -12.75
-    assert repository.summary[1]["metadata"]["model_invocation_ids"] == [
+    repository.add_trajectory_summary.assert_called_once()
+    summary = repository.add_trajectory_summary.call_args.args
+    assert summary[0] == "episode-1"
+    assert summary[2] == -12.75
+    assert summary[1]["metadata"]["model_invocation_ids"] == [
         "modelcall-propose",
         "modelcall-rank",
     ]
-    assert repository.linked == (
-        ["modelcall-propose", "modelcall-rank"],
-        "episode-1",
-        "step-1",
+    repository.get_episode_step.assert_called_once_with("episode-1", 1)
+    repository.link_model_invocations.assert_called_once_with(
+        ["modelcall-propose", "modelcall-rank"], "episode-1", step_id="step-1"
     )

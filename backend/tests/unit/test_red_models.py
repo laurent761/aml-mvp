@@ -46,9 +46,9 @@ def test_experiment_configuration_has_stable_content_hash():
     with pytest.raises(ValueError, match="random_seeds"):
         RedExperimentConfig(random_seeds=(3, 3))
     with pytest.raises(ValueError, match="not implemented"):
-        RedExperimentConfig(ranking_model=ModelConfig())
+        RedExperimentConfig(ranking_model=ModelConfig.model_validate({}))
     with pytest.raises(ValueError, match="heuristic provider"):
-        ModelConfig(model="unused-override")
+        ModelConfig.model_validate({"model": "unused-override"})
 
 
 def test_openai_public_context_excludes_controller_and_verifier_private_data():
@@ -124,13 +124,13 @@ async def test_static_attack_suite_is_fixed_order_and_observation_independent():
 
 @pytest.mark.asyncio
 async def test_provider_factory_resolves_secrets_without_putting_them_in_config():
-    assert isinstance(build_attacker_model(ModelConfig()), HeuristicBaselineModel)
-    config = ModelConfig(
-        provider=ModelProvider.HOSTED_OPENAI_COMPATIBLE,
-        model="frontier",
-        base_url="https://models.invalid/v1",
-        api_key_env="RED_API_KEY",
-    )
+    assert isinstance(build_attacker_model(ModelConfig.model_validate({})), HeuristicBaselineModel)
+    config = ModelConfig.model_validate({
+        "provider": ModelProvider.HOSTED_OPENAI_COMPATIBLE,
+        "model": "frontier",
+        "base_url": "https://models.invalid/v1",
+        "api_key_env": "RED_API_KEY",
+    })
     with pytest.raises(ValueError, match="API-key"):
         build_attacker_model(config, secrets={})
     client = httpx.AsyncClient(

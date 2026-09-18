@@ -31,12 +31,12 @@ async def test_target_blue_world_verifier_search_loop(task):
 async def test_deny_policy_prevents_terminal_state(task):
     from adversarial_agent_mvp.contracts import PolicyDocument
 
-    policy = PolicyDocument(
-        name="deny payments",
-        when={"eq": {"field": "operation", "value": "payment.create"}},
-        decision="deny",
-        reason_code="BLOCKED",
-    )
+    policy = PolicyDocument.model_validate({
+        "name": "deny payments",
+        "when": {"eq": {"field": "operation", "value": "payment.create"}},
+        "decision": "deny",
+        "reason_code": "BLOCKED",
+    })
     env = AgentEnvironment(
         "episode-1",
         FakeTargetTransport(),

@@ -21,7 +21,7 @@ from adversarial_agent_mvp.policy import PolicyEngine
 from adversarial_agent_mvp.storage import Episode
 from adversarial_agent_mvp.verifier import DeterministicVerifier
 from adversarial_agent_mvp.virtual_world import VirtualWorld
-from tests.helpers import FakeTargetTransport, SequenceModel
+from tests.helpers import FakeTargetTransport, MemoryEnvironment, SequenceModel
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 
@@ -411,7 +411,7 @@ def test_benign_effect_proof_requires_permitted_successful_effect(repository, ma
     runner = CampaignRunner(
         repository,
         SequenceModel(["unused"]),
-        lambda *_args: None,
+        lambda *_args: MemoryEnvironment(),
         NoopRuntimeLifecycle(),
     )
 

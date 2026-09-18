@@ -21,17 +21,17 @@ def test_default_capsule_decision_simulates():
 
 
 def test_all_predicate_denies_large_payment():
-    policy = PolicyDocument(
-        name="large payment",
-        when={
+    policy = PolicyDocument.model_validate({
+        "name": "large payment",
+        "when": {
             "all": [
                 {"eq": {"field": "operation", "value": "payment.create"}},
                 {"gt": {"field": "arguments.amount", "value": 10_000}},
             ]
         },
-        decision="deny",
-        reason_code="APPROVAL_REQUIRED",
-    )
+        "decision": "deny",
+        "reason_code": "APPROVAL_REQUIRED",
+    })
     decision = PolicyEngine([policy]).evaluate(effect())
     assert decision.decision == Decision.DENY
     assert decision.policy_ids == [policy.policy_id]
@@ -51,12 +51,12 @@ def test_all_predicate_denies_large_payment():
     ],
 )
 def test_comparators(operator, actual, expected, matches):
-    policy = PolicyDocument(
-        name="predicate",
-        when={operator: {"field": "arguments.value", "value": expected}},
-        decision="deny",
-        reason_code="MATCH",
-    )
+    policy = PolicyDocument.model_validate({
+        "name": "predicate",
+        "when": {operator: {"field": "arguments.value", "value": expected}},
+        "decision": "deny",
+        "reason_code": "MATCH",
+    })
     candidate = effect()
     candidate.arguments["value"] = actual
     assert (PolicyEngine([policy]).evaluate(candidate).decision == Decision.DENY) is matches
@@ -64,23 +64,23 @@ def test_comparators(operator, actual, expected, matches):
 
 def test_transform_requires_arguments():
     with pytest.raises(ValueError):
-        PolicyDocument(name="bad", when={"eq": {"field": "operation", "value": "x"}}, decision="transform", reason_code="X")
+        PolicyDocument.model_validate({"name": "bad", "when": {"eq": {"field": "operation", "value": "x"}}, "decision": "transform", "reason_code": "X"})
 
 
 def test_allow_real_rejected_in_capsule():
-    policy = PolicyDocument(name="bad", when={"eq": {"field": "operation", "value": "payment.create"}}, decision="allow_real", reason_code="NO")
+    policy = PolicyDocument.model_validate({"name": "bad", "when": {"eq": {"field": "operation", "value": "payment.create"}}, "decision": "allow_real", "reason_code": "NO"})
     with pytest.raises(PolicyEvaluationError, match="ALLOW_REAL"):
         PolicyEngine([policy]).evaluate(effect())
 
 
 def test_invalid_ast_rejected():
     with pytest.raises(ValidationError):
-        PolicyDocument(
-            name="bad",
-            when={"python": "danger"},
-            decision="deny",
-            reason_code="X",
-        )
+        PolicyDocument.model_validate({
+            "name": "bad",
+            "when": {"python": "danger"},
+            "decision": "deny",
+            "reason_code": "X",
+        })
 
 
 @pytest.mark.parametrize(
@@ -97,13 +97,13 @@ def test_invalid_ast_rejected():
 )
 def test_policy_ast_rejects_malformed_operator_payloads(when):
     with pytest.raises(ValidationError):
-        PolicyDocument(name="bad", when=when, decision="deny", reason_code="INVALID")
+        PolicyDocument.model_validate({"name": "bad", "when": when, "decision": "deny", "reason_code": "INVALID"})
 
 
 def test_policy_ast_is_recursive_and_frozen():
-    policy = PolicyDocument(
-        name="nested",
-        when={
+    policy = PolicyDocument.model_validate({
+        "name": "nested",
+        "when": {
             "any": [
                 {"not": {"eq": {"field": "operation", "value": "payment.read"}}},
                 {
@@ -114,9 +114,9 @@ def test_policy_ast_is_recursive_and_frozen():
                 },
             ]
         },
-        decision="require_approval",
-        reason_code="REVIEW_REQUIRED",
-    )
+        "decision": "require_approval",
+        "reason_code": "REVIEW_REQUIRED",
+    })
 
     assert policy.model_dump(mode="json")["when"]["any"][0]["not"]["eq"]["field"] == (
         "operation"

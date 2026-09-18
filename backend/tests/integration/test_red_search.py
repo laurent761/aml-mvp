@@ -1,5 +1,6 @@
 import pytest
 
+from adversarial_agent_mvp.contracts import AttackChannel
 from adversarial_agent_mvp.models import ModelUsage
 from adversarial_agent_mvp.red import BestFirstBeamSearch, LinearSearch, MutationEngine
 from tests.helpers import MemoryEnvironment, SequenceModel
@@ -52,7 +53,7 @@ async def test_linear_search_accounts_model_tokens_before_the_candidate_step(tas
             from adversarial_agent_mvp.contracts import RedAction
 
             self.tokens += 7
-            return [RedAction(channel="user_message", payload={"text": "inspect"})]
+            return [RedAction(channel=AttackChannel.USER_MESSAGE, payload={"text": "inspect"})]
 
         async def rank_actions(self, context, actions):
             return actions
@@ -93,7 +94,7 @@ async def test_best_first_search_finds_success_by_branch_replay(task):
 def test_mutations_preserve_parent_lineage():
     from adversarial_agent_mvp.contracts import RedAction
 
-    action = RedAction(channel="user_message", payload={"text": "perform task"})
+    action = RedAction(channel=AttackChannel.USER_MESSAGE, payload={"text": "perform task"})
     mutations = MutationEngine().mutate(action)
     assert len(mutations) == 2
     assert all(item.parent_action_id == action.action_id for item in mutations)

@@ -30,6 +30,8 @@ outputs/
 work/
 *.tsbuildinfo
 /backend/var/
+/backend/test-results/
+/backend/coverage.xml
 
 # Machine files and logs
 .DS_Store

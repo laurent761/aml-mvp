@@ -7,17 +7,17 @@ from pydantic import ValidationError
 
 from adversarial_agent_mvp.inference import TargetInferenceBroker, profile_from_settings
 from adversarial_agent_mvp.inference_contracts import (
+    InferenceMessage,
     InferenceWork,
     TargetInferenceRequest,
     inference_hash,
 )
 from adversarial_agent_mvp.inference_mailbox import InferenceMailbox
-from adversarial_agent_mvp.settings import Settings
+from tests.helpers import IsolatedSettings
 
 
 def configured(**changes):
-    return Settings(
-        _env_file=None,
+    return IsolatedSettings(
         otel_enabled=False,
         **{
             "target_model_provider": "local_openai_compatible",
@@ -31,7 +31,7 @@ def configured(**changes):
 
 def work(broker, request_id="request-1", episode_id="episode-1", **changes):
     request = TargetInferenceRequest(
-        messages=[{"role": "user", "content": "Return JSON"}], **changes
+        messages=[InferenceMessage(role="user", content="Return JSON")], **changes
     )
     return InferenceWork(
         request_id=request_id,
@@ -304,7 +304,7 @@ async def test_oversize_input_and_unclaimed_failure_never_dispatch():
     )
     broker.register("episode-1", broker.profile)
     try:
-        request = TargetInferenceRequest(messages=[{"role": "user", "content": "x" * 300}])
+        request = TargetInferenceRequest(messages=[InferenceMessage(role="user", content="x" * 300)])
         oversized = work(broker).model_copy(
             update={
                 "request": request,

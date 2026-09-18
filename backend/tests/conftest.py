@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -31,17 +32,32 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture
+def isolated_docker_namespace(monkeypatch: pytest.MonkeyPatch) -> str:
+    """Scope capsule inventory/reconciliation to resources created by this test.
+
+    Every Docker lifecycle method resolves MANAGED_LABEL from the same module, so
+    creation, ownership verification, inventory, and cleanup use this unique key.
+    Production supervisors and other test runs cannot discover these capsules.
+    """
+    from adversarial_agent_mvp import capsule
+
+    label = f"io.adversarial-agent-mvp.test.{uuid4().hex}.managed"
+    monkeypatch.setattr(capsule, "MANAGED_LABEL", label)
+    return label
+
+
+@pytest.fixture
 def manifest() -> TargetManifest:
-    return TargetManifest(
-        target_name="external-target",
-        image="registry.test/agent@sha256:" + "a" * 64,
-        entrypoint=["python", "-m", "agent"],
-        healthcheck_url="http://target.internal/healthz",
-        invoke_url="http://target.internal/invoke",
-        reset_url="http://target.internal/reset",
-        tool_transports=["http", "mcp"],
-        environment_aliases={"BLUE_GATEWAY": "blue"},
-    )
+    return TargetManifest.model_validate({
+        "target_name": "external-target",
+        "image": "registry.test/agent@sha256:" + "a" * 64,
+        "entrypoint": ["python", "-m", "agent"],
+        "healthcheck_url": "http://target.internal/healthz",
+        "invoke_url": "http://target.internal/invoke",
+        "reset_url": "http://target.internal/reset",
+        "tool_transports": ["http", "mcp"],
+        "environment_aliases": {"BLUE_GATEWAY": "blue"},
+    })
 
 
 @pytest.fixture

@@ -4,9 +4,10 @@ import asyncio
 import hashlib
 import time
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 
 import httpx
 

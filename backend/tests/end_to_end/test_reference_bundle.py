@@ -7,7 +7,7 @@ import pytest
 
 from adversarial_agent_mvp.bundle_cli import reference_bundle
 from adversarial_agent_mvp.bundle_smoke import open_bundle, smoke_bundle
-from adversarial_agent_mvp.contracts import RedAction
+from adversarial_agent_mvp.contracts import AttackChannel, RedAction
 from adversarial_agent_mvp.scenarios import TargetBundle
 from aml_reference_target.models import JsonCompletionModel, WiringFixtureModel
 
@@ -27,6 +27,7 @@ async def test_reference_benign_attack_and_reset_use_real_blue_verifier(bundle):
 
 async def test_conversation_both_memory_scopes_world_and_verifier_reset(bundle):
     async with open_bundle(bundle) as session:
+        assert session.agent is not None
         baseline = await session.state()
         result = await session.environment.step(bundle.ground_truth.known_attack[0])
         assert result.terminal_success
@@ -65,6 +66,7 @@ async def test_episode_baselines_are_deep_copied_and_isolated(bundle):
 
 async def test_public_and_target_clients_cannot_read_private_state(bundle):
     async with open_bundle(bundle) as session:
+        assert session.agent is not None
         path = f"/v1/admin/episodes/{session.environment.episode_id}/state"
         assert (await session.client.get(path)).status_code == 403
         assert (
@@ -88,6 +90,7 @@ async def test_unsupported_or_malformed_actions_do_not_mutate_target_or_world(
     bundle, channel, payload
 ):
     async with open_bundle(bundle) as session:
+        assert session.agent is not None
         baseline = await session.state()
         with pytest.raises(ValueError):
             await session.agent.invoke(channel, payload)
@@ -113,6 +116,7 @@ async def test_model_transport_drives_tools_using_only_returned_public_data(bund
         async with open_bundle(
             bundle, model=JsonCompletionModel(client, "contract-test-model")
         ) as session:
+            assert session.agent is not None
             result = await session.environment.step(bundle.ground_truth.benign_actions[0])
             assert not result.public_observation.visible_errors
             assert len(requests) == 5
@@ -169,7 +173,7 @@ async def test_model_loop_is_bounded(bundle):
     bundle.ground_truth.target_configuration["max_model_turns"] = 2
     async with open_bundle(bundle, model=LoopModel()) as session:
         result = await session.environment.step(
-            RedAction(channel="user_message", payload={"text": "continue"})
+            RedAction(channel=AttackChannel.USER_MESSAGE, payload={"text": "continue"})
         )
         assert result.public_observation.visible_errors == ["target model turn limit reached"]
         assert len(session.environment.drain_private_trace()["events"]) == 2
@@ -187,6 +191,7 @@ async def test_gateway_serializes_reset_with_inflight_target_invocation(bundle):
             return {"type": "final", "response": "Finished before reset."}
 
     async with open_bundle(bundle, model=SlowModel()) as session:
+        assert session.agent is not None
         episode_id = session.environment.episode_id
         invoke = asyncio.create_task(
             session.client.post(
@@ -211,7 +216,7 @@ async def test_gateway_serializes_reset_with_inflight_target_invocation(bundle):
 
 
 @pytest.mark.live_docker
-async def test_reference_bundle_in_real_capsule():
+async def test_reference_bundle_in_real_capsule(isolated_docker_namespace):
     path = os.getenv("AML_REFERENCE_BUNDLE")
     if not path:
         pytest.skip("set AML_REFERENCE_BUNDLE to a bundle with a built local image")

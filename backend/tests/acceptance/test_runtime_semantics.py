@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from adversarial_agent_mvp.contracts import (
+    AttackChannel,
     CapsuleHandle,
     PublicObservation,
     RedAction,
@@ -64,7 +65,7 @@ async def test_http_target_adapter_uses_only_manifest_endpoints(manifest):
         observation = await adapter.reset(19)
         assert observation == PublicObservation(turn_number=0)
         observation, effects = await adapter.invoke(
-            RedAction(channel="user_message", payload={"text": "inspect"}),
+            RedAction(channel=AttackChannel.USER_MESSAGE, payload={"text": "inspect"}),
             1,
         )
         assert observation.target_response == "public response"
@@ -213,6 +214,7 @@ async def test_docker_lifecycle_maps_manifest_to_fail_closed_capsule_spec(manife
         update={"environment_aliases": {"PAYMENTS_URL": "payments"}}
     )
     handle = await lifecycle.provision("episode-test", routable_manifest)
+    assert runtime.created is not None
     assert runtime.created.episode_id == "episode-test"
     assert runtime.created.image == routable_manifest.image
     assert runtime.created.entrypoint == routable_manifest.entrypoint
@@ -269,6 +271,7 @@ async def test_tagged_registration_reaches_runtime_as_digest_pinned_image(reposi
         "episode-pinned", stored_manifest
     )
 
+    assert runtime.created is not None
     assert runtime.created.image == f"registry.test:5443/team/agent@{digest}"
 
 
@@ -290,7 +293,7 @@ async def test_worker_finishes_owned_jobs_honestly(repository, failure, monkeypa
     get_settings.cache_clear()
     try:
         worker = Worker(Settings(worker_lease_seconds=30), repository)
-        worker.runner = Runner()
+        monkeypatch.setattr(worker, "runner", Runner())
         assert await worker.run_once()
         with repository.db.session() as session:
             completed = session.get(WorkLease, job.id)
@@ -324,7 +327,7 @@ async def test_worker_renews_lease_during_long_campaign(repository, monkeypatch)
     )
     get_settings.cache_clear()
     worker = Worker(Settings(worker_lease_seconds=1), repository)
-    worker.runner = SlowRunner()
+    monkeypatch.setattr(worker, "runner", SlowRunner())
     running = asyncio.create_task(worker.run_once())
     try:
         await asyncio.wait_for(started.wait(), timeout=1)

@@ -5,9 +5,7 @@ import { UsagePanel, UsageBadge, AttackerModeNotice, combineUsage, type UsageSum
 import {
   Activity,
   BookOpenText,
-  Coins,
   Compass,
-  Cpu,
   LockKeyhole,
   ScanEye,
   Workflow,
@@ -461,7 +459,10 @@ export default function ControlPlatform() {
 
   return (
     <div className="control-shell">
-      <a className="skip-link" href="#main-content">Skip to content</a>
+      <a className="skip-link" href="#main-content" onClick={(event) => {
+        event.preventDefault();
+        document.getElementById("main-content")?.focus();
+      }}>Skip to content</a>
       <aside className={`nav-rail ${mobileNav ? "nav-rail--open" : ""}`} aria-label="Primary navigation">
         <div className="brand-lockup">
           <div className="brand-mark aml-mark" aria-hidden="true">A</div>

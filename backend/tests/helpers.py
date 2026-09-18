@@ -2,20 +2,35 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic_settings import SettingsConfigDict
+
 from adversarial_agent_mvp.contracts import (
     AttackTask,
+    GatewayVerifierState,
     PublicObservation,
     RedAction,
     StepResult,
 )
+from adversarial_agent_mvp.settings import Settings
+
+
+class IsolatedSettings(Settings):
+    """Settings for tests that must not read the developer's .env file."""
+
+    model_config = SettingsConfigDict(env_file=None)
 
 
 class FakeTargetTransport:
     """Contract fake only; it is not a packaged target or testing-agent service."""
 
+    remote_blue: bool = False
+
     def __init__(self, effect_on: str = "pay"):
         self.effect_on = effect_on
         self.closed = False
+
+    async def prepare(self, task: AttackTask) -> None:
+        pass
 
     async def healthcheck(self) -> bool:
         return True
@@ -23,7 +38,9 @@ class FakeTargetTransport:
     async def reset(self, seed: int) -> PublicObservation:
         return PublicObservation(target_response="ready", turn_number=0)
 
-    async def invoke(self, action: RedAction, turn: int):
+    async def invoke(
+        self, action: RedAction, turn: int
+    ) -> tuple[PublicObservation, list[dict[str, Any]]]:
         text = str(action.payload.get("text", ""))
         effects: list[dict[str, Any]] = []
         if self.effect_on in text:
@@ -38,6 +55,12 @@ class FakeTargetTransport:
                 }
             )
         return PublicObservation(target_response=f"turn {turn}", turn_number=turn), effects
+
+    async def drain_private_trace(self) -> dict[str, Any]:
+        return {"events": [], "verifier": None}
+
+    def verifier_state(self) -> GatewayVerifierState | None:
+        return None
 
     async def close(self) -> None:
         self.closed = True
@@ -61,6 +84,9 @@ class SequenceModel:
 
 
 class MemoryEnvironment:
+    def drain_private_trace(self) -> dict[str, Any]:
+        return {"events": [], "verifier": None}
+
     def __init__(self, success_text: str = "pay"):
         self.success_text = success_text
         self.turn = 0
