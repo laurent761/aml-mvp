@@ -11,7 +11,7 @@ tools.
 |---|---|
 | Try AML on your computer | Follow [Run locally](#run-locally), steps 1–5. No model account or API key is needed for the included example. |
 | Stop AML or fix a failed run | See steps 6–7 in [Run locally](#run-locally). |
-| Write Python scripts to run tests | Complete the local setup, then follow [Python SDK](#python-sdk). |
+| Integrate with AML over HTTP | Complete local setup, then see [API access](#api-access). |
 | Repeat a result to see whether it happens again | Read [Repeat a previous experiment](#reproduction). |
 | Change AML's source code | Read [Change the code and check your changes](#development-and-checks). This is optional. |
 | Understand the system in detail | Open the [architecture guide](architecture-guide.html). |
@@ -27,8 +27,7 @@ tools.
 - **Finding:** a recorded case where the target reached a state the test forbids.
   Replaying it checks whether that result happens again.
 - **UI:** the web interface you open in your browser. **API:** the service used by the
-  UI and Python scripts to communicate with AML.
-- **SDK:** the Python library for controlling AML from your own code.
+  UI and external clients to communicate with AML.
 
 ## Run locally
 
@@ -77,7 +76,7 @@ make setup
 ```
 
 This installs the project's required Python and JavaScript packages at the versions
-recorded in the repository, installs the SDK into `backend/.venv`, and copies
+recorded in the repository and copies
 `backend/.env.example` to `backend/.env` if that file does not already exist.
 Re-running it preserves your existing `.env`.
 
@@ -91,7 +90,7 @@ setups; Linux users should check `DOCKER_GID` below.
 | `API_PORT`, `UI_PORT` | Defaults are `8000` and `3000`; change them if occupied. |
 | `DOCKER_SOCKET` | The socket for the Docker daemon that will run the target containers. |
 | `DOCKER_GID` | On Linux, use the socket group ID from the command below. Docker Desktop commonly uses `0`. |
-| `RESEARCH_AUTH_REQUIRED`, `RESEARCH_AUTH_TOKENS` | Keep `false` and `{}` for the browser-based local walkthrough. See the SDK section for authenticated access. |
+| `RESEARCH_AUTH_REQUIRED`, `RESEARCH_AUTH_TOKENS` | Keep `false` and `{}` for the browser-based local walkthrough. See [API access](#api-access) for authenticated access. |
 | `TARGET_MODEL_PROVIDER`, `ATTACKER_MODEL_PROVIDER` | Keep `disabled` and `heuristic` for the fixture walkthrough. |
 
 On Linux, find the socket group ID (adjust the path if you changed `DOCKER_SOCKET`):
@@ -228,32 +227,19 @@ Restart with `docker compose up -d --wait`. Adding `-v` to `docker compose down`
 deletes the stack's persistent volumes, including its database and stored artifacts;
 after that, repeat startup and target registration.
 
-## Python SDK
+## API access
 
-This section is optional. Use it if you want to run experiments from Python instead
-of the browser. First complete local setup through step 4, or obtain the address
-and access token for an existing AML installation.
+Use the web console for the POC workflow. External clients can call the backend
+HTTP API directly; its interactive documentation is available at
+**http://localhost:8000/docs** after local setup. Adjust the address if your API
+runs on a different host or port.
 
-The SDK can be installed separately with Python 3.10+; developing the backend still
-requires Python 3.12+. It communicates with AML over the API.
-
-### 1. Choose a Python environment
-
-A virtual environment keeps this project's Python packages separate from other
-projects on your computer. If you ran `make setup`, the SDK is already installed in `backend/.venv`; use
-`backend/.venv/bin/python` from the repository root. For a separate environment:
-
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install ./sdk
-```
-
-### 2. Configure authentication and the API URL
+### Authentication
 
 An access token is a secret string that identifies your client and its permissions.
-The SDK always sends this token with its requests (a “bearer token”). Use a token configured by your deployment's
-operator; an arbitrary token is rejected even when local authentication is disabled.
+For authenticated HTTP requests, send `Authorization: Bearer <token>`. Use a token
+configured by your deployment's operator; an arbitrary token is rejected even when
+local authentication is disabled.
 For a local authenticated setup, generate a token and its configuration with:
 
 ```bash
@@ -278,74 +264,6 @@ Apply changes from `backend/` with `docker compose up -d --force-recreate api`.
 Enter the same original token in the UI connection dialog when using this
 authenticated stack.
 
-In the shell where you will run the SDK, set:
-
-```bash
-export AML_API_URL=http://localhost:8000
-export AML_TOKEN='your-configured-token'
-```
-
-Replace the URL and token with your deployment's values. Keep the stack running.
-
-### 3. Run one episode
-
-From the repository root, using the environment created by `make setup`:
-
-```bash
-backend/.venv/bin/python sdk/examples/workflows.py episode
-```
-
-For the separate environment, use `python sdk/examples/workflows.py episode` instead.
-The example selects the first catalog bundle by default; set `AML_BUNDLE_ID` to
-choose a specific registered bundle. It prints the public response, session ID,
-episode ID, and outcome.
-
-### 4. Adapt the example
-
-The following shows the same reset-and-step lifecycle for your own script:
-
-```python
-import asyncio
-import os
-from aml_research import Client
-
-async def main():
-    async with Client(os.environ["AML_API_URL"], os.environ["AML_TOKEN"]) as client:
-        bundles = await client.catalog()
-        if not bundles:
-            raise RuntimeError("Register a target bundle before running this example.")
-        async with client.session(bundle_id=bundles[0]["bundle_id"]) as session:
-            initial = await session.reset()
-            # Give only initial.public_observation to your attacker.
-            result = await session.step({
-                "channel": "user_message", "payload": {"text": "Process invoice-001."}
-            })
-            print(result.outcome)  # Research output, separate from attacker input.
-
-asyncio.run(main())
-```
-
-<details>
-<summary>Advanced: recovering interrupted operations and handling files</summary>
-
-- `client.session()` bounds concurrency and maintains heartbeats. Keep `session.id` and
-  `session.last_operation_id`; use `client.operation(id)` to recover results and
-  `attach_session()` to resume a live session. `OperationTimeout` exposes its ID.
-- Never blindly retry `IndeterminateOperation`. Interruptions retire the episode.
-  Retries preserve JSON and idempotency keys; recover operations instead of guessing step indices.
-- Failed uploads restart the whole file with the same key; crashed active transfers
-  must expire or be cancelled first. Failed transfers cannot create checkpoints.
-  Downloads verify SHA-256 before replacing files.
-- Outcomes, measurements, rewards, and usage are research outputs. Reported training
-  rewards never change verified outcomes.
-
-[Workflow examples](sdk/examples/workflows.py) cover concurrency, exports, training
-records, checkpoints, runtimes, and evaluation. Runtime registration requires
-operator scope; fixture runtimes and checkpoints are wiring examples. See the [architecture guide](architecture-guide.html)
-for lifecycle, isolation, persistence, and model-inference details.
-
-</details>
-
 <a id="reproduction"></a>
 
 ## Repeat a previous experiment
@@ -366,7 +284,7 @@ Inspect the new run separately from the original finding.
 | `GET /v1/research-sessions/{id}/reproduction` | Read progress, success, and observation divergence. |
 | `POST /v1/findings/{id}/replay` | Operator replay used by the UI. Send `{"reproduction_only": true, "search_nearby_bypasses": false}` to retain original target/task, policy, attacker configuration, and lineage without starting hardening. |
 
-For authenticated requests, send `Authorization: Bearer <token>`. The SDK sends
+For authenticated requests, send `Authorization: Bearer <token>`. Clients can send
 `X-AML-API-Version: aml.research.v1`; the API defaults to that version if omitted.
 Research reproduction POSTs require an ASCII `Idempotency-Key` of 1–200 characters.
 Setting `search_nearby_bypasses` to `true` requests adaptive mutations; a conflicting
@@ -484,12 +402,6 @@ Then run from the repository root:
 )
 ```
 
-**Python SDK package:** from the repository root:
-
-```bash
-uv build sdk
-```
-
 Read each command's output. A nonzero exit code needs attention before you share
 the change.
 
@@ -541,7 +453,6 @@ training/restoration code. Fixture success does not establish model performance.
 |---|---|
 | `backend/src/` | API, workers, Red/Blue, storage, verifiers, reference agent, and target protocol |
 | `backend/migrations/` | Database migrations |
-| `sdk/` | Independent Python client and executable examples |
 | `ui/` | Web console, API proxy, and reusable components |
 
 ## References

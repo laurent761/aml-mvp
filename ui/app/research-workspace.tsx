@@ -19,7 +19,7 @@ type OperationRow = { id: string; status: string; kind: string; input: Record<st
 } | null };
 
 export function ResearchSessionTable({ sessions, onSelect }: { sessions: ResearchSessionRow[]; onSelect: (id: string) => void }) {
-  return <div className="research-table-scroll"><table className="research-table"><caption className="sr-only">Research sessions created through the SDK or research API</caption><thead><tr><th>Session / run</th><th>Control</th><th>Progress</th><th>Status</th><th>Stop reason</th></tr></thead><tbody>
+  return <div className="research-table-scroll"><table className="research-table"><caption className="sr-only">Research sessions created through the research API</caption><thead><tr><th>Session / run</th><th>Control</th><th>Progress</th><th>Status</th><th>Stop reason</th></tr></thead><tbody>
     {sessions.map(session => <tr key={session.id}><td><button className="inspector-link" onClick={() => onSelect(session.id)}>{shortId(session.id)}</button><small className="cell-note">{session.run_id ? shortId(session.run_id) : "No parent run"}</small></td><td>{session.configuration.mode}</td><td>{session.step_index} / {session.configuration.limits.max_steps} steps</td><td>{session.state.replaceAll("_", " ")}</td><td>{session.stop_reason?.replaceAll("_", " ") ?? "—"}</td></tr>)}
   </tbody></table>{sessions.length === 0 ? <p className="research-empty">No research sessions match this view.</p> : null}</div>;
 }
@@ -97,7 +97,7 @@ export default function ResearchWorkspace({ apiBase, view, search }: { apiBase: 
     try { setDetail(await apiRequest(apiBase, path)); } catch (reason) { setError(String(reason)); }
   };
   const matches = (value: unknown) => JSON.stringify(value).toLowerCase().includes(search.toLowerCase());
-  return <section className="surface research-workspace" aria-label="Research integration"><div className="section-head"><div><h3>{view === "targets" ? "Runnable target bundles" : view === "system" ? "Research services" : "Research records"}</h3><p>{view === "targets" ? "Registered scenarios and their declared execution mode." : "Records shared with the Python SDK."}</p></div><Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}><RefreshCw />Refresh research</Button></div>
+  return <section className="surface research-workspace" aria-label="Research integration"><div className="section-head"><div><h3>{view === "targets" ? "Runnable target bundles" : view === "system" ? "Research services" : "Research records"}</h3><p>{view === "targets" ? "Registered scenarios and their declared execution mode." : "Session history, datasets, and evaluation results."}</p></div><Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}><RefreshCw />Refresh research</Button></div>
     {error ? <p className="research-error" role="alert">{error}</p> : null}
     {loading ? <p role="status" className="research-empty">Loading research records…</p> : null}
     {view === "targets" ? <div className="research-record-grid">{catalog.filter(matches).map(item => <article key={item.bundle_id}><h4>{item.scenario.name}</h4><p>{item.scenario.version} · {item.scenario.split} · {item.execution_mode === "fixture" ? "Simulation · scripted target" : item.execution_mode === "model" ? "Real model target configured" : "Target mode unknown"}</p><small>{item.readiness}; live acceptance not asserted</small>{item.last_session ? <p>Latest session: {item.last_session.state} · {item.last_session.stop_reason ?? "No stop reported"}</p> : null}</article>)}</div> : null}
