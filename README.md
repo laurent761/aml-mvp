@@ -42,66 +42,34 @@ follow logs and `docker compose down` to stop services while keeping stored data
 
 ## Architecture design
 
-AML runs controlled attacks against isolated target agents. **Red** chooses attack
-actions, **Blue** mediates simulated business effects, and trusted verifiers
-record outcomes.
+The POC runs as one Admin. Each campaign executes isolated episodes in which
+**Red** selects attacks, the **target** acts, and **Blue** mediates tools and
+verifies simulated business effects.
+
+### Campaign lifecycle
 
 ```mermaid
 flowchart TD
-    UI[Web console and API proxy] --> API[FastAPI control API]
-    Client[External API clients] --> API
-    API --> DB[(PostgreSQL: records and durable queue)]
-    DB -->|Leased jobs| Worker[Worker and managed Red]
-    Worker --> Supervisor[Capsule supervisor]
-
-    subgraph Capsule[Per-episode capsule]
-        Target[Target agent]
-        Blue[Blue gateway and verifiers]
-        Target -->|Tool calls and virtual effects| Blue
-    end
-
-    Supervisor -->|Provision and invoke| Target
-    Supervisor -->|Configure and collect trace| Blue
-    Worker -->|Outcomes and lineage| DB
-    Worker --> Artifacts[(MinIO: evidence and artifacts)]
-    Worker --> MLflow[MLflow tracking]
-    API --> Artifacts
+    A[Launch a campaign] --> B[API queues work; worker claims it]
+    B --> C[Supervisor creates a fresh Target + Blue capsule]
+    C --> D[Red selects an attack]
+    D --> E[Target executes via supervisor and Blue]
+    E --> F[Blue mediates tools and verifies effects]
+    F -->|Continue episode| D
+    F -->|Episode ends| G[Worker saves evidence and destroys capsule via supervisor]
+    G --> H[Review trajectories and findings]
+    H -.->|Launch fresh replay| B
 ```
 
-### Components and responsibilities
-
-| Component | Responsibility |
-| --- | --- |
-| Web console | Register targets, launch campaigns, and inspect experiments, trajectories, findings, evidence, and strategy memory. |
-| Control API | Validate requests and limits; persist commands and expose research records. |
-| Worker and Red | Lease queued work, select attacks, execute episodes, and persist results. |
-| Capsule supervisor | Manage capsule lifecycle, own Docker access, and broker target model inference. |
-| Target and Blue | Run in separate containers on an internal network. Blue enforces policy and records trusted events for simulated business effects. |
-| Persistence | PostgreSQL stores commands, outcomes, and lineage; MinIO stores artifacts; MLflow tracks runs. |
-| Supporting services | The target registry preserves images; OpenTelemetry collects service telemetry. |
-
-### Episode lifecycle and isolation
-
-1. Bind a pinned target image to a scenario, policy, seed, and resource limits.
-2. Provision a fresh capsule and check readiness.
-3. Red submits interventions; the target acts through Blue's controlled tools.
-4. Verify trusted events and save observations, outcomes, usage, and evidence.
-5. Finalize the trajectory and destroy the capsule. Replay uses a fresh execution.
-
-Target model requests follow **target → Blue mailbox → supervisor broker → model
-provider**. Provider credentials and connectivity stay outside the capsule.
-Internal service tokens and target capability checks still protect communication
-with the supervisor and Blue gateway. Request validation and resource limits
-apply to the shared Admin; conventional user login is deferred beyond the POC.
-The target cannot certify its own success; a recorded finding and a successful
-fresh replay are separate results.
+The execution path is **worker → supervisor → Blue → target**. Target tool calls
+return to Blue; the worker records observations and verified outcomes. An episode
+ends on success, target termination, a limit, or failure. A campaign can run more
+episodes within its budget, each in a fresh capsule. Replay queues a new campaign;
+a recorded finding alone does not confirm successful reproduction.
 
 <a id="current-implementation"></a>
 
-The included target is one finance reference agent with scripted `fixture` and
-configurable `model` modes. Docker capsules share the host kernel and serve as
-the development isolation runtime. A production Firecracker/KVM runner is not
-bundled or validated. Training runs externally; fixture outcomes do not establish
-real-model performance.
-
-For the detailed design, see the [architecture guide](architecture-guide.html).
+The bundled runtime uses Docker and ships one finance reference target with
+scripted `fixture` and configurable `model` modes. The UI and API share full Admin
+access without login. See the [architecture guide](architecture-guide.html) for
+execution boundaries and evidence semantics.

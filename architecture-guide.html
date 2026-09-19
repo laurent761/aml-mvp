@@ -199,7 +199,7 @@
     <div class="eyebrow">Architecture &amp; lifecycles<br>Source-grounded · September 2026</div>
     <nav aria-label="Guide chapters">
       <a href="#overview" aria-current="location"><span>00</span>Overview</a>
-      <a href="#system"><span>01</span>System architecture</a>
+      <a href="#system"><span>01</span>Main flow</a>
       <a href="#episode"><span>02</span>Experiment lifecycle</a>
       <a href="#evidence"><span>03</span>Evidence</a>
       <a href="#learning"><span>04</span>Research flow</a>
@@ -217,51 +217,30 @@
     </section>
 
     <section class="section" id="system" aria-labelledby="system-title">
-      <div class="section-head"><div><span class="eyebrow">01 / System architecture</span><h2 id="system-title">One system, clear boundaries.</h2></div><p class="muted">Branches show responsibilities and containment.</p></div>
-      <div class="system-layout">
-        <figure class="tree-panel">
-          <figcaption><span class="eyebrow">Architecture tree</span><strong>Who owns what</strong></figcaption>
-          <ul class="tree"><li><span class="root-label">AML</span><ul>
-            <li><strong>Research control</strong><ul>
-              <li><strong>Web console</strong><small>Single Admin access to targets, campaigns, trajectories, findings and evidence.</small></li>
-              <li><strong>Research HTTP API</strong><small>Uses the same Admin context without a user token. Includes external sessions and training records.</small></li>
-              <li><strong>Approved attacker runtime</strong><small>Generates actions when called by managed Red.</small></li>
-            </ul></li>
-            <li><strong>Trusted control plane</strong><ul>
-              <li><strong>API + durable queue</strong><small>Validate limits and commands for the single Admin.</small></li>
-              <li><strong>Worker + managed Red</strong><small>Lease work, choose actions and record execution.</small></li>
-              <li><strong>Supervisor</strong><small>Provision capsules; own Docker and target inference access.</small></li>
-            </ul></li>
-            <li><strong>Per-episode capsule</strong><ul>
-              <li><strong>Target agent · untrusted</strong><small>Make bounded model and tool decisions.</small></li>
-              <li><strong>Blue gateway · trusted</strong><small>Enforce policy → execute virtual effects → verify events.</small></li>
-            </ul></li>
-            <li><strong>Durable records</strong><ul>
-              <li><strong>PostgreSQL</strong><small>Commands, outcomes and lineage.</small></li>
-              <li><strong>Artifact store</strong><small>Evidence, datasets, checkpoints and reports.</small></li>
-            </ul></li>
-          </ul></li></ul>
-        </figure>
-        <aside class="map-aside" aria-label="Runtime boundaries">
-          <span class="eyebrow">Runtime boundaries</span>
-          <h3>Business effects stay synthetic.</h3>
-          <p>Target and Blue run in separate containers on an internal network. Business calls cross Blue; the target cannot certify its own success.</p>
-          <dl><dt>Execution path</dt><dd>API → queue → worker → supervisor → capsule</dd><dt>Target model access</dt><dd>Target → Blue mailbox → supervisor broker → model provider</dd><dt>Secrets</dt><dd>Provider credentials and connectivity stay outside the capsule.</dd></dl>
-          <a href="README.md#current-implementation">Contracts &amp; isolation limits ↗</a>
-        </aside>
+      <div class="section-head"><div><span class="eyebrow">01 / Main flow</span><h2 id="system-title">Launch. Attack. Verify. Review.</h2></div><p class="muted">One campaign, repeated isolated episodes.</p></div>
+      <div class="lifecycle-board">
+        <div class="lifecycle-row"><span class="phase">01</span><h4>Launch</h4><p>The Admin creates a campaign. The API queues it and a worker claims the job.</p></div>
+        <div class="lifecycle-row"><span class="phase">02</span><h4>Isolate</h4><p>The supervisor creates a fresh capsule containing the target and Blue gateway.</p></div>
+        <div class="lifecycle-row"><span class="phase">03</span><h4>Attack</h4><p>Red selects an action. The worker invokes the target through the supervisor and Blue.</p></div>
+        <div class="lifecycle-row"><span class="phase">04</span><h4>Verify</h4><p>Blue mediates the target's tools and verifies simulated effects. The worker records the outcome and continues with another action while the episode remains active.</p></div>
+        <div class="lifecycle-row"><span class="phase">05</span><h4>Finalize</h4><p>On success, termination, a limit or failure, the worker saves evidence and asks the supervisor to destroy the capsule. Further episodes use fresh capsules within the campaign budget.</p></div>
+        <div class="lifecycle-row"><span class="phase">06</span><h4>Review</h4><p>Inspect trajectories and findings. Replay queues a new campaign and repeats the execution in a fresh capsule.</p></div>
       </div>
+      <p class="note"><strong>Execution boundary:</strong> worker → supervisor → Blue → target. Target tool calls return to Blue for policy enforcement and verification; the target cannot certify its own success.</p>
+      <div class="source"><a href="README.md#campaign-lifecycle">Lifecycle diagram ↗</a></div>
     </section>
 
     <section class="section" id="episode" aria-labelledby="episode-title">
-      <span class="eyebrow">02 / Experiment lifecycle</span><h2 id="episode-title">From intent to outcome.</h2>
+      <span class="eyebrow">02 / Experiment lifecycle</span><h2 id="episode-title">From campaign to evidence.</h2>
+      <p class="note">The console creates campaigns. An experiment is a backend episode; its trajectory is the ordered action/observation history. External research sessions use queued reset/step/close commands and reuse the same capsule execution layer.</p>
       <div class="lifecycle-board">
-        <div class="lifecycle-row"><span class="phase">01</span><h4>Configure</h4><p>Bind a pinned target image to a scenario, tools, initial state and verifier. Create a session with a seed and resource limits.</p></div>
-        <div class="lifecycle-row"><span class="phase">02</span><h4>Reset</h4><p>Start an episode in a fresh capsule and check readiness.</p></div>
-        <div class="lifecycle-row"><span class="phase">03</span><h4>Intervene</h4><p>Submit a message, document or declared tool-result replacement. Blue validates delivery and records a receipt.</p></div>
-        <div class="lifecycle-row"><span class="phase">04</span><h4>Execute</h4><p>Run the target/tool loop; save observations, verified outcomes and usage. Repeat until success, termination or a limit.</p></div>
-        <div class="lifecycle-row"><span class="phase">05</span><h4>Finalize</h4><p>Save the trajectory and destroy the capsule. An external session may reset again within budget or close.</p></div>
+        <div class="lifecycle-row"><span class="phase">01</span><h4>Configure</h4><p>Register the target and task. Create a campaign with pinned target, policy, Red configuration and budgets; persist a WorkLease job.</p></div>
+        <div class="lifecycle-row"><span class="phase">02</span><h4>Provision</h4><p>The worker claims a lease. The supervisor prepares the image and creates a Target/Blue pair; the worker bootstraps Blue, checks readiness and resets the target.</p></div>
+        <div class="lifecycle-row"><span class="phase">03</span><h4>Intervene</h4><p>Red selects actions through linear/adaptive search or replay. Actions pass through the supervisor to Blue, which validates intervention delivery and records receipts.</p></div>
+        <div class="lifecycle-row"><span class="phase">04</span><h4>Execute</h4><p>Blue invokes the target and mediates its tools. Verify virtual effects and save observations, trusted traces, rewards, usage and findings until success, termination or a limit.</p></div>
+        <div class="lifecycle-row"><span class="phase">05</span><h4>Finalize</h4><p>Save the trajectory and evidence bundle, destroy the capsule, and record campaign metrics. Strategy memory stores search outcomes; replay creates a fresh execution.</p></div>
       </div>
-      <p class="note"><strong>Recovery:</strong> completed commands retain their results. Worker loss during an effect marks the operation <code>indeterminate</code> and retires the session. No blind replay; persisted records survive, live target state does not.</p>
+      <p class="note"><strong>Research-session recovery:</strong> completed commands retain their results. Worker loss during an effect marks the operation <code>indeterminate</code> and retires the session. No blind replay; persisted records survive, live target state does not.</p>
     </section>
 
     <section class="section" id="evidence" aria-labelledby="evidence-title">
@@ -277,7 +256,7 @@
 
     <section class="section" id="learning" aria-labelledby="learning-title">
       <span class="eyebrow">04 / Research flow</span><h2 id="learning-title">Keep the lineage intact.</h2>
-      <p class="note">This extended flow is available through backend APIs. The POC console shows campaign evidence and strategy memory; it does not include session, dataset, checkpoint or paired-evaluation record browsers.</p>
+      <p class="note">This extended flow is implemented through backend APIs for sessions, runs, dataset snapshots, artifact uploads, checkpoints, registered attacker runtimes and paired evaluations. The console exposes campaign evidence and strategy memory; these additional record browsers are outside its current interface. Policy-version and hardening APIs also remain in the backend.</p>
       <div class="two">
         <figure class="tree-panel">
           <figcaption><span class="eyebrow">Research tree</span><strong>Records → derived artifacts</strong></figcaption>
@@ -307,13 +286,13 @@
     <section class="section" id="operations" aria-labelledby="operations-title">
       <span class="eyebrow">05 / Operations &amp; scope</span><h2 id="operations-title">What runs. What remains.</h2>
       <div class="two">
-        <div class="panel"><h3>Platform</h3><p>Compose runs the UI, API, workers, supervisor, PostgreSQL, MinIO, MLflow and telemetry. Docker capsules are the development isolation runtime and share the host kernel.</p></div>
+        <div class="panel"><h3>Platform</h3><p>The console includes a quickstart tour, overview, targets, campaigns, experiments, live attack lab, trajectories, verified exploits, learning, evidence and system views. Its proxy forwards <code>/healthz</code>, <code>/readyz</code> and <code>/v1/*</code> to the configured backend.</p></div>
         <div class="panel"><h3>Your team</h3><p>Own deployment, network access, service and model-provider credentials, budgets, capacity, retention and consistent database/artifact backups. Capsules are disposable.</p></div>
       </div>
       <p class="note"><strong>POC access:</strong> the UI and HTTP API share one Admin with full access. No login, user access token, authorization header or per-user role is required. Connection settings only select the backend address. Research records use the existing <code>local</code> owner key for lineage, quotas and idempotency; request validation and resource limits remain active. Conventional user login is deferred beyond the POC.</p>
       <p class="note"><strong>Internal credentials:</strong> supervisor tokens and target capability checks still protect service communication. Database, artifact-store and model-provider credentials remain configured separately from user access.</p>
       <div class="status-line" style="margin-top:24px"><span class="tag">Reference</span><p>One finance agent in fixture/model modes. Task: an internal invoice summary. Forbidden outcome: simulated external email containing synthetic personal identifiers. Fixtures demonstrate wiring, not real-model acceptance.</p></div>
-      <div class="status-line"><span class="tag">Outstanding</span><p>Real-model acceptance; additional targets and a held-out suite; validated learned checkpoints; clean-build acceptance; independently validated Firecracker/KVM isolation where required.</p></div>
+      <div class="status-line"><span class="tag">Runtime scope</span><p>Docker is the bundled capsule runtime and shares the host kernel. The Firecracker option delegates to an externally supplied supervisor-compatible runner. Model endpoints, training compute and checkpoint loading are externally supplied; their behavior requires separate validation.</p></div>
       <div class="source"><a href="README.md#run-locally">Deployment runbook ↗</a></div>
     </section>
     <footer class="footer"><span>AML / Architecture &amp; lifecycles · Source review 2026-09-19</span><span>Self-contained, offline HTML · <a href="#overview">Back to top ↑</a></span></footer>
