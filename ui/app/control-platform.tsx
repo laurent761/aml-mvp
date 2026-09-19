@@ -88,7 +88,6 @@ import { Toaster } from "@/components/ui/sonner";
 import {
   ApiError,
   apiRequest,
-  setResearchToken,
   apiUrl,
   formatCost,
   formatDate,
@@ -435,9 +434,8 @@ export default function ControlPlatform() {
     setSelectedFinding(null);
   };
 
-  const saveApiBase = (value: string, token: string) => {
+  const saveApiBase = (value: string) => {
     const normalized = normalizeApiBase(value);
-    setResearchToken(normalized, token);
     setConnectionRevision(previous => previous + 1);
     refresh();
     window.localStorage.setItem("adversarial-api-base", normalized);
@@ -907,7 +905,7 @@ function SystemView({ data, apiBase, connected, search, onConnection, onInspect 
     <section className="surface">
       <details className="raw-details complete-record">
         <summary>Advanced settings</summary>
-        <div className="section-head"><div><h3>Control API connection</h3><p>Change the backend address or research access token. Most deployments connect automatically.</p></div><Button variant="outline" onClick={onConnection}><Settings2 />Connection settings</Button></div>
+        <div className="section-head"><div><h3>Control API connection</h3><p>Change the backend address. Most deployments connect automatically.</p></div><Button variant="outline" onClick={onConnection}><Settings2 />Connection settings</Button></div>
       </details>
     </section>
     <section className="surface event-stream">
@@ -938,10 +936,9 @@ function InspectorSheet({ inspection, apiBase, onOpenChange }: { inspection: Ins
   return <Sheet open={Boolean(inspection)} onOpenChange={onOpenChange}><SheetContent className="detail-sheet inspector-sheet"><SheetHeader><SheetTitle>{inspection?.title ?? "Inspector"}</SheetTitle><SheetDescription>{inspection?.description ?? "Complete API record"}</SheetDescription></SheetHeader><div className="sheet-scroll">{loading ? <LoadingSurface /> : failure ? <section className="connection-banner" role="alert"><CircleAlert /><div><strong>Detail could not be loaded.</strong><p>{failure}</p></div></section> : <pre className="inspector-json">{JSON.stringify(payload, null, 2)}</pre>}</div></SheetContent></Sheet>;
 }
 
-function ConnectionDialog({ open, value, onOpenChange, onSave }: { open: boolean; value: string; onOpenChange: (open: boolean) => void; onSave: (value: string, token: string) => void }) {
+function ConnectionDialog({ open, value, onOpenChange, onSave }: { open: boolean; value: string; onOpenChange: (open: boolean) => void; onSave: (value: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const tokenRef = useRef<HTMLInputElement>(null);
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>Control API connection</DialogTitle><DialogDescription>Use the same origin for the integrated deployment, or enter an allowed backend origin for development.</DialogDescription></DialogHeader><div className="form-stack"><Label htmlFor="api-origin">API origin</Label><Input ref={inputRef} id="api-origin" defaultValue={value} placeholder="Same origin" /><p className="field-help">Examples: blank for the packaged platform, or http://localhost:8000.</p><Label htmlFor="research-token">Research access token</Label><Input ref={tokenRef} id="research-token" type="password" autoComplete="off" placeholder="Provided by your operator" /><p className="field-help">Kept in this tab until you reload.</p></div><DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button onClick={() => onSave(inputRef.current?.value ?? value, tokenRef.current?.value ?? "")}>Save and reconnect</Button></DialogFooter></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>Control API connection</DialogTitle><DialogDescription>Use the same origin for the integrated deployment, or enter an allowed backend origin for development.</DialogDescription></DialogHeader><div className="form-stack"><Label htmlFor="api-origin">API origin</Label><Input ref={inputRef} id="api-origin" defaultValue={value} placeholder="Same origin" /><p className="field-help">Examples: blank for the packaged platform, or http://localhost:8000.</p></div><DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button onClick={() => onSave(inputRef.current?.value ?? value)}>Save and reconnect</Button></DialogFooter></DialogContent></Dialog>;
 }
 
 const targetManifest = JSON.stringify({

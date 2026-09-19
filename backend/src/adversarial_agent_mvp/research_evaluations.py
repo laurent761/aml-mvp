@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, FastAPI, Header, Request
+from fastapi import APIRouter, FastAPI, Header
 from sqlalchemy import select
 
 from .contracts import new_id
@@ -16,6 +16,7 @@ from .evaluation import (
 )
 from .red_contracts import AblationMode
 from .research import (
+    ADMIN_OWNER_ID,
     TERMINAL_SESSIONS,
     ResearchError,
     ResearchService,
@@ -24,7 +25,6 @@ from .research import (
     record_view,
 )
 from .research_api import request_key
-from .research_auth import principal
 from .research_contracts import EvaluationCreate, SessionCreate, SessionLimits
 from .research_storage import EpisodeCommand, ResearchRecord, ResearchSession
 from .storage import Artifact, Campaign, Episode, WorkLease, jsonable
@@ -35,10 +35,10 @@ def install_evaluation_routes(app: FastAPI, service: ResearchService) -> None:
     repo = service.repository
 
     @router.post("/evaluations", status_code=202)
-    def evaluation(body: EvaluationCreate, request: Request,
+    def evaluation(body: EvaluationCreate,
                    idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
         with repo.db.session() as db:
-            owner = principal(request, "evaluation")["owner_id"]
+            owner = ADMIN_OWNER_ID
             lock_owner(db, owner)
             suite = db.get(ResearchRecord, body.suite_id)
             if suite is None or suite.kind != "suite":
@@ -62,16 +62,16 @@ def install_evaluation_routes(app: FastAPI, service: ResearchService) -> None:
             return record_view(row)
 
     @router.get("/evaluations")
-    def evaluations(request: Request) -> dict[str, Any]:
+    def evaluations() -> dict[str, Any]:
         with repo.db.session() as db:
             return {"items": [record_view(row) for row in db.scalars(select(ResearchRecord).where(
-                ResearchRecord.owner_id == principal(request, "evaluation")["owner_id"], ResearchRecord.kind == "evaluation")
+                ResearchRecord.owner_id == ADMIN_OWNER_ID, ResearchRecord.kind == "evaluation")
                 .order_by(ResearchRecord.created_at.desc()).limit(500))]}
 
     @router.get("/evaluations/{evaluation_id}")
-    def evaluation_detail(evaluation_id: str, request: Request) -> dict[str, Any]:
+    def evaluation_detail(evaluation_id: str) -> dict[str, Any]:
         with repo.db.session() as db:
-            owner = principal(request, "evaluation")["owner_id"]
+            owner = ADMIN_OWNER_ID
             result = record_view(owned_record(db, owner, evaluation_id, "evaluation"))
             complete = db.scalar(select(ResearchRecord).where(ResearchRecord.kind == "evaluation_result",
                 ResearchRecord.request_key == evaluation_id))
@@ -90,9 +90,9 @@ def install_evaluation_routes(app: FastAPI, service: ResearchService) -> None:
             return result
 
     @router.post("/research-episodes/{episode_id}/reproduce", status_code=202)
-    def reproduce(episode_id: str, request: Request,
+    def reproduce(episode_id: str,
                   idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
-        owner = principal(request, "evaluation")["owner_id"]
+        owner = ADMIN_OWNER_ID
         with repo.db.session() as db:
             episode = db.get(Episode, episode_id)
             session = db.scalar(select(ResearchSession).where(ResearchSession.campaign_id == episode.campaign_id)) if episode else None
@@ -113,12 +113,12 @@ def install_evaluation_routes(app: FastAPI, service: ResearchService) -> None:
                 "observations": [c.result["public_observation"] for c in commands if c.result],
                 "source_terminal_success": episode.terminal_success}}
         return service.create_session(owner, "reproduce:" + request_key(idempotency_key), body,
-                                      evaluation=source, allow_test=True)
+                                      evaluation=source)
 
     @router.get("/research-sessions/{session_id}/reproduction")
-    def reproduction_result(session_id: str, request: Request) -> dict[str, Any]:
+    def reproduction_result(session_id: str) -> dict[str, Any]:
         with repo.db.session() as db:
-            owner = principal(request, "evaluation")["owner_id"]
+            owner = ADMIN_OWNER_ID
             session = db.get(ResearchSession, session_id)
             if session is None or session.owner_id != owner:
                 raise ResearchError("session not found", 404)
@@ -154,7 +154,7 @@ class EvaluationRunner:
                         group_id=evaluation_id, limits=SessionLimits.model_validate(suite.document["limits"]))
                     session = self.service.create_session(evaluation.owner_id, f"{evaluation_id}:{pair_id}:{role}", body,
                         evaluation={"evaluation_id": evaluation_id, "pair_id": pair_id, "role": role,
-                            "checkpoint_id": evaluation.document[role + "_checkpoint_id"], "suite_hash": suite.content_hash}, allow_test=True)
+                            "checkpoint_id": evaluation.document[role + "_checkpoint_id"], "suite_hash": suite.content_hash})
                     pair[role] = session["id"]
                 with repo.db.session() as db:
                     lock_owner(db, evaluation.owner_id)

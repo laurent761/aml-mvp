@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import select, text
 
 from .research import (
+    ADMIN_OWNER_ID,
     ResearchError,
     ResearchService,
     command_view,
@@ -17,7 +18,6 @@ from .research import (
     record_view,
     session_view,
 )
-from .research_auth import ResearchAuthMiddleware, principal
 from .research_contracts import (
     API_VERSION,
     CheckpointCreate,
@@ -31,6 +31,7 @@ from .research_contracts import (
     StepRequest,
     SuiteCreate,
 )
+from .research_requests import ResearchRequestMiddleware
 from .research_storage import EpisodeCommand, ResearchRecord, ResearchSession
 from .runtime_registry import RegisteredAttacker
 from .scenarios import content_hash
@@ -64,7 +65,7 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
     repository: Repository = app.state.repository
     service = ResearchService(repository, settings)
     app.state.research_service = service
-    app.add_middleware(ResearchAuthMiddleware, settings=settings)
+    app.add_middleware(ResearchRequestMiddleware, settings=settings)
 
     @app.exception_handler(ResearchError)
     async def research_error(_request: Request, exc: ResearchError) -> JSONResponse:
@@ -73,17 +74,14 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
     router = APIRouter(prefix="/v1")
 
     @router.get("/research-catalog")
-    def catalog(request: Request) -> dict[str, Any]:
-        identity = principal(request)
+    def catalog() -> dict[str, Any]:
         with repository.db.session() as db:
             rows = []
             recent = list(db.scalars(select(ResearchSession).where(
-                ResearchSession.owner_id == identity["owner_id"]).order_by(ResearchSession.created_at.desc())))
+                ResearchSession.owner_id == ADMIN_OWNER_ID).order_by(ResearchSession.created_at.desc())))
             for bundle in db.scalars(select(TargetBundleRow).order_by(TargetBundleRow.created_at)):
                 scenario = db.get(ScenarioVersionRow, bundle.scenario_version_id)
                 assert scenario
-                if scenario.split == "test" and not {"operator", "evaluation"} & set(identity["scopes"]):
-                    continue
                 last = next((s for s in recent if s.document["bundle_id"] == bundle.id), None)
                 rows.append({"bundle_id": bundle.id, "target_version_id": bundle.target_version_id,
                     "scenario_version_id": bundle.scenario_version_id, "execution_mode": bundle.execution_mode,
@@ -94,82 +92,80 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
             return {"api_version": API_VERSION, "items": rows}
 
     @router.post("/research-sessions", status_code=202)
-    def create_session(body: SessionCreate, request: Request,
+    def create_session(body: SessionCreate,
                        idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
-        identity = principal(request)
-        return service.create_session(str(identity["owner_id"]), request_key(idempotency_key), body,
-            allow_test=bool({"operator", "evaluation"} & set(identity["scopes"])))
+        return service.create_session(ADMIN_OWNER_ID, request_key(idempotency_key), body)
 
     @router.get("/research-sessions")
-    def list_sessions(request: Request, limit: int = Query(default=100, ge=1, le=500),
+    def list_sessions(limit: int = Query(default=100, ge=1, le=500),
                       offset: int = Query(default=0, ge=0)) -> dict[str, Any]:
-        owner = principal(request)["owner_id"]
+        owner = ADMIN_OWNER_ID
         with repository.db.session() as db:
             return {"items": [session_view(row) for row in db.scalars(select(ResearchSession).where(
                 ResearchSession.owner_id == owner).order_by(ResearchSession.created_at.desc()).offset(offset).limit(limit))]}
 
     @router.get("/research-sessions/{session_id}")
-    def get_session(session_id: str, request: Request) -> dict[str, Any]:
+    def get_session(session_id: str) -> dict[str, Any]:
         with repository.db.session() as db:
-            row = owned_session(db, principal(request)["owner_id"], session_id)
+            row = owned_session(db, ADMIN_OWNER_ID, session_id)
             result = session_view(row)
             campaign = db.get(Campaign, row.campaign_id)
             result["usage"] = {"tokens": campaign.tokens_used, "cost": campaign.cost_used} if campaign else {}
             return result
 
     @router.post("/research-sessions/{session_id}/heartbeat")
-    def heartbeat(session_id: str, request: Request) -> dict[str, Any]:
+    def heartbeat(session_id: str) -> dict[str, Any]:
         with repository.db.session() as db:
-            owner = principal(request)["owner_id"]
+            owner = ADMIN_OWNER_ID
             lock_owner(db, owner)
             row = owned_session(db, owner, session_id)
             row.heartbeat_at = datetime.now(UTC)
             return session_view(row)
 
     @router.post("/research-sessions/{session_id}/reset", status_code=202)
-    def reset(session_id: str, body: ResetRequest, request: Request,
+    def reset(session_id: str, body: ResetRequest,
               idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
-        return service.submit(principal(request)["owner_id"], session_id, "reset", request_key(idempotency_key), body.model_dump(mode="json"))
+        return service.submit(ADMIN_OWNER_ID, session_id, "reset", request_key(idempotency_key), body.model_dump(mode="json"))
 
     @router.post("/research-sessions/{session_id}/steps", status_code=202)
-    def step(session_id: str, body: StepRequest, request: Request,
+    def step(session_id: str, body: StepRequest,
              idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
         key = request_key(idempotency_key)
         if "action_id" not in body.action.model_fields_set:
             body.action.action_id = "action_" + content_hash({"session": session_id, "key": key})[:32]
-        return service.submit(principal(request)["owner_id"], session_id, "step", key, body.model_dump(mode="json"))
+        return service.submit(ADMIN_OWNER_ID, session_id, "step", key, body.model_dump(mode="json"))
 
     @router.post("/research-sessions/{session_id}/close", status_code=202)
-    def close(session_id: str, request: Request,
+    def close(session_id: str,
               idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
-        return service.submit(principal(request)["owner_id"], session_id, "close", request_key(idempotency_key), {})
+        return service.submit(ADMIN_OWNER_ID, session_id, "close", request_key(idempotency_key), {})
 
     @router.post("/research-sessions/{session_id}/cancel", status_code=202)
-    def cancel(session_id: str, request: Request,
+    def cancel(session_id: str,
                idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
-        return service.submit(principal(request)["owner_id"], session_id, "cancel", request_key(idempotency_key), {})
+        return service.submit(ADMIN_OWNER_ID, session_id, "cancel", request_key(idempotency_key), {})
 
     @router.get("/research-operations/{operation_id}")
-    def operation(operation_id: str, request: Request) -> dict[str, Any]:
+    def operation(operation_id: str) -> dict[str, Any]:
         with repository.db.session() as db:
             row = db.get(EpisodeCommand, operation_id)
             if row is None:
                 raise ResearchError("operation not found", 404)
-            owned_session(db, principal(request)["owner_id"], row.session_id)
+            owned_session(db, ADMIN_OWNER_ID, row.session_id)
             return command_view(row)
 
     @router.get("/research-sessions/{session_id}/trajectory")
-    def trajectory(session_id: str, request: Request, limit: int = Query(default=100, ge=1, le=500),
+    def trajectory(session_id: str, limit: int = Query(default=100, ge=1, le=500),
                    offset: int = Query(default=0, ge=0)) -> dict[str, Any]:
         with repository.db.session() as db:
-            owned_session(db, principal(request)["owner_id"], session_id)
+            owned_session(db, ADMIN_OWNER_ID, session_id)
             commands = db.scalars(select(EpisodeCommand).where(EpisodeCommand.session_id == session_id)
                 .order_by(EpisodeCommand.created_at, EpisodeCommand.id).offset(offset).limit(limit))
             return {"items": [{**command_view(row), "input": row.payload} for row in commands]}
 
     @router.get("/research-episodes/{episode_id}/evidence")
-    def episode_evidence(episode_id: str, request: Request) -> dict[str, Any]:
-        owner = principal(request, "evidence")["owner_id"]
+    def episode_evidence(episode_id: str) -> dict[str, Any]:
+        owner = ADMIN_OWNER_ID
         with repository.db.session() as db:
             episode = db.get(Episode, episode_id)
             session = db.scalar(select(ResearchSession).where(ResearchSession.campaign_id == episode.campaign_id)) if episode else None
@@ -179,10 +175,10 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
                 "verifier_events": [r.document for r in repository.list_verifier_events(episode_id)]}
 
     @router.post("/research-runs", status_code=201)
-    def create_run(body: ResearchRunCreate, request: Request,
+    def create_run(body: ResearchRunCreate,
                    idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
         with repository.db.session() as db:
-            owner = principal(request)["owner_id"]
+            owner = ADMIN_OWNER_ID
             lock_owner(db, owner)
             for dataset in body.dataset_ids:
                 owned_record(db, owner, dataset, "dataset")
@@ -196,9 +192,9 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
                 {**body.model_dump(mode="json"), "configuration_hash": content_hash(body.configuration)}))
 
     @router.post("/research-runs/{run_id}/events", status_code=201)
-    def run_event(run_id: str, body: RunEvent, request: Request) -> dict[str, Any]:
+    def run_event(run_id: str, body: RunEvent) -> dict[str, Any]:
         with repository.db.session() as db:
-            owner = principal(request)["owner_id"]
+            owner = ADMIN_OWNER_ID
             lock_owner(db, owner)
             owned_record(db, owner, run_id, "run")
             for artifact in body.artifact_ids:
@@ -207,11 +203,11 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
                 {**body.model_dump(mode="json"), "run_id": run_id, "usage_source": "externally_reported"}))
 
     @router.post("/research-runs/{run_id}/generations", status_code=201)
-    def generation(run_id: str, body: GenerationCreate, request: Request) -> dict[str, Any]:
+    def generation(run_id: str, body: GenerationCreate) -> dict[str, Any]:
         if body.parsed_action and "action_id" not in body.parsed_action.model_fields_set:
             body.parsed_action.action_id = "action_" + content_hash({"run": run_id, "generation": body.generation_id})[:32]
         with repository.db.session() as db:
-            owner = principal(request)["owner_id"]
+            owner = ADMIN_OWNER_ID
             lock_owner(db, owner)
             owned_record(db, owner, run_id, "run")
             session = owned_session(db, owner, body.session_id)
@@ -232,9 +228,9 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
                 {**body.model_dump(mode="json"), "run_id": run_id, "source": "externally_reported"}))
 
     @router.post("/research-runs/{run_id}/rewards", status_code=201)
-    def report_reward(run_id: str, body: RewardAnnotation, request: Request) -> dict[str, Any]:
+    def report_reward(run_id: str, body: RewardAnnotation) -> dict[str, Any]:
         with repository.db.session() as db:
-            owner = principal(request)["owner_id"]
+            owner = ADMIN_OWNER_ID
             lock_owner(db, owner)
             owned_record(db, owner, run_id, "run")
             command = db.get(EpisodeCommand, body.operation_id)
@@ -247,16 +243,16 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
                 {**body.model_dump(mode="json"), "run_id": run_id, "authoritative": False}))
 
     @router.get("/research-runs")
-    def runs(request: Request, limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0)) -> dict[str, Any]:
+    def runs(limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0)) -> dict[str, Any]:
         with repository.db.session() as db:
             return {"items": [record_view(row) for row in db.scalars(select(ResearchRecord).where(
-                ResearchRecord.owner_id == principal(request)["owner_id"], ResearchRecord.kind == "run")
+                ResearchRecord.owner_id == ADMIN_OWNER_ID, ResearchRecord.kind == "run")
                 .order_by(ResearchRecord.created_at.desc()).offset(offset).limit(limit))]}
 
     @router.get("/research-runs/{run_id}")
-    def run_detail(run_id: str, request: Request) -> dict[str, Any]:
+    def run_detail(run_id: str) -> dict[str, Any]:
         with repository.db.session() as db:
-            owner = principal(request)["owner_id"]
+            owner = ADMIN_OWNER_ID
             result = record_view(owned_record(db, owner, run_id, "run"))
             events = list(db.scalars(select(ResearchRecord).where(ResearchRecord.owner_id == owner,
                 ResearchRecord.kind == "run_event").order_by(ResearchRecord.created_at, ResearchRecord.id)))
@@ -265,10 +261,10 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
             return result
 
     @router.post("/checkpoints", status_code=201)
-    def checkpoint(body: CheckpointCreate, request: Request,
+    def checkpoint(body: CheckpointCreate,
                    idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
         with repository.db.session() as db:
-            owner = principal(request)["owner_id"]
+            owner = ADMIN_OWNER_ID
             lock_owner(db, owner)
             owned_record(db, owner, body.run_id, "run")
             files = []
@@ -279,9 +275,9 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
                 {**body.model_dump(mode="json"), "files": files, "load_validation": "not_asserted"}))
 
     @router.post("/model-runtimes", status_code=201)
-    def runtime(body: RuntimeCreate, request: Request) -> dict[str, Any]:
+    def runtime(body: RuntimeCreate) -> dict[str, Any]:
         with repository.db.session() as db:
-            owner = principal(request, "operator")["owner_id"]
+            owner = ADMIN_OWNER_ID
             lock_owner(db, "__runtime_registry__")
             lock_owner(db, owner)
             checkpoint = db.get(ResearchRecord, body.checkpoint_id)
@@ -297,8 +293,8 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
             return record_view(service.put_record(db, owner, "runtime", key, body.model_dump(mode="json")))
 
     @router.post("/model-runtimes/{runtime_id}/health")
-    async def runtime_health(runtime_id: str, request: Request) -> dict[str, Any]:
-        owner = principal(request, "operator")["owner_id"]
+    async def runtime_health(runtime_id: str) -> dict[str, Any]:
+        owner = ADMIN_OWNER_ID
         with repository.db.session() as db:
             runtime = db.get(ResearchRecord, runtime_id)
             if runtime is None or runtime.kind != "runtime":
@@ -317,9 +313,9 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
         return health
 
     @router.post("/benchmark-suites", status_code=201)
-    def suite(body: SuiteCreate, request: Request) -> dict[str, Any]:
+    def suite(body: SuiteCreate) -> dict[str, Any]:
         with repository.db.session() as db:
-            owner = principal(request, "operator")["owner_id"]
+            owner = ADMIN_OWNER_ID
             lock_owner(db, owner)
             cases = []
             for bundle_id in body.bundle_ids:
@@ -336,16 +332,11 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
                 {**body.model_dump(mode="json"), "cases": cases, "strategy_memory": "disabled"}))
 
     # Registry reads share ownership validation; immutable versions are the API identity.
-    def registry_list(kind: str, request: Request) -> dict[str, Any]:
-        identity = principal(request, "evaluation" if kind == "suite" else "research")
+    def registry_list(kind: str) -> dict[str, Any]:
         with repository.db.session() as db:
             query = select(ResearchRecord).where(ResearchRecord.kind == kind)
             if kind == "checkpoint":
-                query = query.where(ResearchRecord.owner_id == identity["owner_id"])
-            elif kind == "runtime" and "operator" not in identity["scopes"]:
-                checkpoints = select(ResearchRecord.id).where(
-                    ResearchRecord.kind == "checkpoint", ResearchRecord.owner_id == identity["owner_id"])
-                query = query.where(ResearchRecord.document["checkpoint_id"].as_string().in_(checkpoints))
+                query = query.where(ResearchRecord.owner_id == ADMIN_OWNER_ID)
             rows = list(db.scalars(query.order_by(ResearchRecord.created_at.desc()).limit(500)))
             values = [record_view(row) for row in rows]
             if kind == "runtime":
@@ -354,39 +345,35 @@ def install_research_api(app: FastAPI, settings: Settings) -> None:
                 for item in values:
                     last_check = next((c for c in checks if c.document["runtime_id"] == item["id"]), None)
                     item["health"] = last_check.document if last_check else {"status": "not_checked"}
-            if kind == "runtime" and "operator" not in identity["scopes"]:
-                for item in values:
-                    item["document"] = {k: v for k, v in item["document"].items() if k not in {"endpoint", "credential_ref"}}
             return {"items": values}
 
     @router.get("/checkpoints")
-    def checkpoints(request: Request) -> dict[str, Any]:
-        return registry_list("checkpoint", request)
+    def checkpoints() -> dict[str, Any]:
+        return registry_list("checkpoint")
 
     @router.get("/model-runtimes")
-    def runtimes(request: Request) -> dict[str, Any]:
-        return registry_list("runtime", request)
+    def runtimes() -> dict[str, Any]:
+        return registry_list("runtime")
 
     @router.get("/benchmark-suites")
-    def suites(request: Request) -> dict[str, Any]:
-        return registry_list("suite", request)
+    def suites() -> dict[str, Any]:
+        return registry_list("suite")
 
     @router.get("/checkpoints/{checkpoint_id}")
-    def checkpoint_detail(checkpoint_id: str, request: Request) -> dict[str, Any]:
+    def checkpoint_detail(checkpoint_id: str) -> dict[str, Any]:
         with repository.db.session() as db:
-            return record_view(owned_record(db, principal(request)["owner_id"], checkpoint_id, "checkpoint"))
+            return record_view(owned_record(db, ADMIN_OWNER_ID, checkpoint_id, "checkpoint"))
 
     @router.get("/research-artifacts/{artifact_id}/download")
-    def artifact_download(artifact_id: str, request: Request) -> StreamingResponse:
+    def artifact_download(artifact_id: str) -> StreamingResponse:
         with repository.db.session() as db:
-            row = owned_artifact(db, principal(request)["owner_id"], artifact_id)
+            row = owned_artifact(db, ADMIN_OWNER_ID, artifact_id)
         return StreamingResponse(app.state.artifact_store.iter_bytes(row.uri), media_type="application/octet-stream",
             headers={"Content-Length": str(row.size_bytes), "ETag": f'"{row.sha256}"',
                      "X-Content-SHA256": row.sha256})
 
     @router.get("/research-health")
-    async def health(request: Request) -> dict[str, Any]:
-        principal(request)
+    async def health() -> dict[str, Any]:
         components: dict[str, Any] = {"api": "ready", "database": "ready", "supervisor": "not_configured",
             "target": "per_session", "model_endpoint": "per_runtime", "artifacts": "unverified"}
         with repository.db.session() as db:

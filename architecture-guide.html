@@ -223,12 +223,12 @@
           <figcaption><span class="eyebrow">Architecture tree</span><strong>Who owns what</strong></figcaption>
           <ul class="tree"><li><span class="root-label">AML</span><ul>
             <li><strong>Research control</strong><ul>
-              <li><strong>Web console</strong><small>Targets, campaigns, trajectories, findings and evidence.</small></li>
-              <li><strong>Research HTTP API</strong><small>External sessions and training records; outside the POC console.</small></li>
+              <li><strong>Web console</strong><small>Single Admin access to targets, campaigns, trajectories, findings and evidence.</small></li>
+              <li><strong>Research HTTP API</strong><small>Uses the same Admin context without a user token. Includes external sessions and training records.</small></li>
               <li><strong>Approved attacker runtime</strong><small>Generates actions when called by managed Red.</small></li>
             </ul></li>
             <li><strong>Trusted control plane</strong><ul>
-              <li><strong>API + durable queue</strong><small>Validate identity, limits and commands.</small></li>
+              <li><strong>API + durable queue</strong><small>Validate limits and commands for the single Admin.</small></li>
               <li><strong>Worker + managed Red</strong><small>Lease work, choose actions and record execution.</small></li>
               <li><strong>Supervisor</strong><small>Provision capsules; own Docker and target inference access.</small></li>
             </ul></li>
@@ -301,20 +301,22 @@
           <div class="panel"><span class="eyebrow">Comparison</span><h3>Inspect what ran.</h3><p>Compare verified success and cost. Account for failed and indeterminate executions before claiming improvement.</p></div>
         </div>
       </div>
-      <div class="source"><a href="README.md#api-access">API access ↗</a><a href="README.md#reproduction">Replay ↗</a></div>
+      <div class="source"><a href="README.md#run-locally">Run the UI and API ↗</a><a href="#evidence">Replay outcomes ↗</a></div>
     </section>
 
     <section class="section" id="operations" aria-labelledby="operations-title">
       <span class="eyebrow">05 / Operations &amp; scope</span><h2 id="operations-title">What runs. What remains.</h2>
       <div class="two">
         <div class="panel"><h3>Platform</h3><p>Compose runs the UI, API, workers, supervisor, PostgreSQL, MinIO, MLflow and telemetry. Docker capsules are the development isolation runtime and share the host kernel.</p></div>
-        <div class="panel"><h3>Your team</h3><p>Own deployment, access, secrets, budgets, capacity, retention and consistent database/artifact backups. Capsules are disposable.</p></div>
+        <div class="panel"><h3>Your team</h3><p>Own deployment, network access, service and model-provider credentials, budgets, capacity, retention and consistent database/artifact backups. Capsules are disposable.</p></div>
       </div>
+      <p class="note"><strong>POC access:</strong> the UI and HTTP API share one Admin with full access. No login, user access token, authorization header or per-user role is required. Connection settings only select the backend address. Research records use the existing <code>local</code> owner key for lineage, quotas and idempotency; request validation and resource limits remain active. Conventional user login is deferred beyond the POC.</p>
+      <p class="note"><strong>Internal credentials:</strong> supervisor tokens and target capability checks still protect service communication. Database, artifact-store and model-provider credentials remain configured separately from user access.</p>
       <div class="status-line" style="margin-top:24px"><span class="tag">Reference</span><p>One finance agent in fixture/model modes. Task: an internal invoice summary. Forbidden outcome: simulated external email containing synthetic personal identifiers. Fixtures demonstrate wiring, not real-model acceptance.</p></div>
       <div class="status-line"><span class="tag">Outstanding</span><p>Real-model acceptance; additional targets and a held-out suite; validated learned checkpoints; clean-build acceptance; independently validated Firecracker/KVM isolation where required.</p></div>
       <div class="source"><a href="README.md#run-locally">Deployment runbook ↗</a></div>
     </section>
-    <footer class="footer"><span>AML / Architecture &amp; lifecycles · Source review 2026-09-15</span><span>Self-contained, offline HTML · <a href="#overview">Back to top ↑</a></span></footer>
+    <footer class="footer"><span>AML / Architecture &amp; lifecycles · Source review 2026-09-19</span><span>Self-contained, offline HTML · <a href="#overview">Back to top ↑</a></span></footer>
   </main>
 </div>
 <script>

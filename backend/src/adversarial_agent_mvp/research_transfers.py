@@ -12,9 +12,15 @@ from fastapi import APIRouter, FastAPI, Header, Request
 from sqlalchemy import select
 
 from .contracts import new_id
-from .research import ResearchError, ResearchService, lock_owner, owned_record, record_view
+from .research import (
+    ADMIN_OWNER_ID,
+    ResearchError,
+    ResearchService,
+    lock_owner,
+    owned_record,
+    record_view,
+)
 from .research_api import request_key
-from .research_auth import principal
 from .research_contracts import DatasetCreate, UploadCreate
 from .research_storage import ArtifactUpload, EpisodeCommand, ResearchRecord, ResearchSession
 from .scenarios import content_hash
@@ -39,10 +45,10 @@ def install_transfer_routes(app: FastAPI, service: ResearchService) -> None:
         return row
 
     @router.post("/artifact-uploads", status_code=201)
-    def initiate(body: UploadCreate, request: Request,
+    def initiate(body: UploadCreate,
                  idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
         with repo.db.session() as db:
-            owner_id = principal(request)["owner_id"]
+            owner_id = ADMIN_OWNER_ID
             owner = lock_owner(db, owner_id)
             key = request_key(idempotency_key)
             document = body.model_dump(mode="json")
@@ -64,13 +70,13 @@ def install_transfer_routes(app: FastAPI, service: ResearchService) -> None:
             return upload_view(row)
 
     @router.get("/artifact-uploads/{upload_id}")
-    def status(upload_id: str, request: Request) -> dict[str, Any]:
+    def status(upload_id: str) -> dict[str, Any]:
         with repo.db.session() as db:
-            return upload_view(upload(db, principal(request)["owner_id"], upload_id))
+            return upload_view(upload(db, ADMIN_OWNER_ID, upload_id))
 
     @router.put("/artifact-uploads/{upload_id}/data")
     async def transfer(upload_id: str, request: Request) -> dict[str, Any]:
-        owner = principal(request)["owner_id"]
+        owner = ADMIN_OWNER_ID
         with repo.db.session() as db:
             lock_owner(db, owner)
             row = upload(db, owner, upload_id)
@@ -110,8 +116,8 @@ def install_transfer_routes(app: FastAPI, service: ResearchService) -> None:
             raise
 
     @router.post("/artifact-uploads/{upload_id}/complete")
-    async def complete(upload_id: str, request: Request) -> dict[str, Any]:
-        owner = principal(request)["owner_id"]
+    async def complete(upload_id: str) -> dict[str, Any]:
+        owner = ADMIN_OWNER_ID
         with repo.db.session() as db:
             lock_owner(db, owner)
             row = upload(db, owner, upload_id)
@@ -149,9 +155,9 @@ def install_transfer_routes(app: FastAPI, service: ResearchService) -> None:
             raise
 
     @router.post("/artifact-uploads/{upload_id}/cancel")
-    def cancel_upload(upload_id: str, request: Request) -> dict[str, Any]:
+    def cancel_upload(upload_id: str) -> dict[str, Any]:
         with repo.db.session() as db:
-            owner_id = principal(request)["owner_id"]
+            owner_id = ADMIN_OWNER_ID
             owner = lock_owner(db, owner_id)
             row = upload(db, owner_id, upload_id)
             if row.status == "completed":
@@ -163,11 +169,10 @@ def install_transfer_routes(app: FastAPI, service: ResearchService) -> None:
             return upload_view(row)
 
     @router.post("/dataset-snapshots", status_code=202)
-    def snapshot(body: DatasetCreate, request: Request,
+    def snapshot(body: DatasetCreate,
                  idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
-        identity = principal(request, "evaluation" if body.split == "test" else "research")
         with repo.db.session() as db:
-            owner = identity["owner_id"]
+            owner = ADMIN_OWNER_ID
             lock_owner(db, owner)
             for run_id in body.run_ids:
                 owned_record(db, owner, run_id, "run")
@@ -192,16 +197,16 @@ def install_transfer_routes(app: FastAPI, service: ResearchService) -> None:
             return record_view(row)
 
     @router.get("/dataset-snapshots")
-    def snapshots(request: Request) -> dict[str, Any]:
+    def snapshots() -> dict[str, Any]:
         with repo.db.session() as db:
             return {"items": [record_view(row) for row in db.scalars(select(ResearchRecord).where(
-                ResearchRecord.owner_id == principal(request)["owner_id"], ResearchRecord.kind == "dataset")
+                ResearchRecord.owner_id == ADMIN_OWNER_ID, ResearchRecord.kind == "dataset")
                 .order_by(ResearchRecord.created_at.desc()).limit(500))]}
 
     @router.get("/dataset-snapshots/{dataset_id}")
-    def snapshot_detail(dataset_id: str, request: Request) -> dict[str, Any]:
+    def snapshot_detail(dataset_id: str) -> dict[str, Any]:
         with repo.db.session() as db:
-            owner = principal(request)["owner_id"]
+            owner = ADMIN_OWNER_ID
             result = record_view(owned_record(db, owner, dataset_id, "dataset"))
             completed = db.scalar(select(ResearchRecord).where(ResearchRecord.owner_id == owner,
                 ResearchRecord.kind == "dataset_result", ResearchRecord.request_key == dataset_id))

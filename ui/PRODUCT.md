@@ -20,8 +20,7 @@ Primary pages: Adversarial Overview, Targets, Attack Campaigns, Experiments, Liv
 
 The POC console focuses on target registration, attack campaigns, experiments,
 trajectories, verified findings, evidence, and strategy memory. Each page presents
-its campaign workflow directly. Views use authenticated HTTP requests and retain
-explicit owner/scope limits. The separate research-session, dataset, checkpoint,
+its campaign workflow directly. The separate research-session, dataset, checkpoint,
 and paired-evaluation record browsers are outside the POC interface.
 The shipped controlled target is one finance reference agent; see
 [project status](../README.md#current-implementation) for coverage and validation limits.
@@ -29,6 +28,20 @@ The shipped controlled target is one finance reference agent; see
 Verified exploits are deterministic finding records, not deduplicated vulnerabilities or automatically confirmed reproductions. Exact replay confirmation requires the same target version, task, original runtime conditions, and verifier. Strategy memory reports historical outcomes, not model weight training or proven learning uplift. Experiment comparisons are descriptive and use loaded records with explicit denominators; incomplete or interrupted episodes are excluded.
 
 This is the standalone AML product. Its product model is active experimentation; it does not include asset scanning, governance/posture scoring, capability maps, or a production runtime recorder.
+
+## POC Access
+
+The POC has one shared Admin with full access through the UI and HTTP API. Opening
+the console requires no login, signup, invitation, or user access token. API
+clients do not send an authorization header. All clients share the same Admin
+context; this is not a separate account for each visitor.
+
+Connection settings only select the backend address. Request validation, rate
+limits, and experiment budgets still apply. Research records retain the existing
+`local` owner key for lineage, quotas, and idempotency. Internal service credentials,
+target capability checks, and model-provider API keys remain part of execution.
+
+Conventional user login and additional user roles are deferred beyond the POC.
 
 ## Brand Personality
 

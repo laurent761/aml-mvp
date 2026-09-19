@@ -53,9 +53,6 @@ export async function proxyBackendRequest(
   }
   headers.set("x-forwarded-host", incomingUrl.host);
   headers.set("x-forwarded-proto", incomingUrl.protocol.replace(":", ""));
-  // Forward only an explicit AML credential, never a Sites/browser authorization token.
-  const researchToken = request.headers.get("x-aml-research-token");
-  if (researchToken) headers.set("authorization", `Bearer ${researchToken}`);
 
   const hasBody = !["GET", "HEAD"].includes(request.method.toUpperCase());
   let upstream: Response;

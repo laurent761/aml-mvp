@@ -416,9 +416,9 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins if cors_origins is None else cors_origins,
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-AML-API-Version"],
+        allow_headers=["Content-Type", "Idempotency-Key", "X-AML-API-Version"],
         expose_headers=["ETag", "X-Content-SHA256"],
     )
     if settings.otel_enabled:

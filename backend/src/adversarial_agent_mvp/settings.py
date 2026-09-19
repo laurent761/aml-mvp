@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -72,9 +72,6 @@ class Settings(BaseSettings):
     worker_retry_max_seconds: float = Field(default=30.0, ge=0, le=3600)
     max_worker_concurrency: int = 4
 
-    # SHA-256 bearer-token digest -> {owner_id, scopes}. No plaintext tokens in records.
-    research_auth_tokens: dict[str, dict[str, Any]] = Field(default_factory=dict)
-    research_auth_required: bool = False
     research_max_sessions_per_owner: int = Field(default=4, ge=1, le=64)
     research_owner_cost_limit: float = Field(default=100, ge=0, allow_inf_nan=False)
     research_owner_storage_bytes: int = Field(default=107374182400, ge=1)
@@ -148,14 +145,6 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_deployment_safety(self) -> "Settings":
-        if self.research_auth_required and not self.research_auth_tokens:
-            raise ValueError("RESEARCH_AUTH_TOKENS is required with authenticated access")
-        for digest, principal in self.research_auth_tokens.items():
-            import re
-            if not re.fullmatch(r"[a-f0-9]{64}", digest) or not re.fullmatch(
-                r"[a-zA-Z0-9_-]{1,100}", str(principal.get("owner_id", ""))
-            ) or not isinstance(principal.get("scopes"), list) or not set(principal["scopes"]) <= {"research", "evaluation", "evidence", "operator"}:
-                raise ValueError("invalid research token digest, owner or scopes")
         if self.worker_retry_max_seconds < self.worker_retry_base_seconds:
             raise ValueError("WORKER_RETRY_MAX_SECONDS must be >= WORKER_RETRY_BASE_SECONDS")
         if self.deployment_environment != "development":
@@ -213,8 +202,6 @@ class Settings(BaseSettings):
                     + ", ".join(missing)
                 )
 
-        if self.deployment_environment == "production" and self.service_role in {"all", "api"} and not self.research_auth_required:
-            raise ValueError("production API requires RESEARCH_AUTH_REQUIRED")
         return self
 
 

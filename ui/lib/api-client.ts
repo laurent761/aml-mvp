@@ -10,13 +10,6 @@ export class ApiError extends Error {
   }
 }
 
-// Credentials live only in this tab's memory and are bound to the selected API origin.
-const researchTokens = new Map<string, string>();
-export function setResearchToken(base: string, token: string): void {
-  researchTokens.clear();
-  if (token.trim()) researchTokens.set(normalizeApiBase(base), token.trim());
-}
-
 export function normalizeApiBase(value: string): string {
   const trimmed = value.trim();
   if (!trimmed || trimmed === "/") return "";
@@ -33,8 +26,6 @@ export async function apiRequest<T>(
   init?: RequestInit,
 ): Promise<T> {
   const headers = new Headers(init?.headers);
-  const token = researchTokens.get(normalizeApiBase(base));
-  if (token) headers.set(normalizeApiBase(base) ? "Authorization" : "X-AML-Research-Token", normalizeApiBase(base) ? `Bearer ${token}` : token);
   headers.set("X-AML-API-Version", "aml.research.v1");
   if (init?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");

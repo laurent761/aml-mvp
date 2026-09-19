@@ -1,172 +1,107 @@
 # AML — Adversarial Agent Research Platform
 
-Run controlled attacks against isolated agents through a web console or HTTP API.
-Red chooses attacks, Blue mediates simulated business effects, and verifiers record
-outcomes. See the [architecture guide](architecture-guide.html) for the full workflow.
-
-[Run locally](#run-locally) · [API access](#api-access) · [Reproduction](#reproduction) ·
-[Development](#development-and-checks) · [References](#references)
-
-## Current implementation
-
-One Python finance reference agent supports scripted `fixture` and configurable
-`model` modes. The POC console supports target registration, attack campaigns,
-experiments, trajectories, verified findings, evidence, replay, and strategy memory.
-
-The backend retains research-session, dataset, checkpoint, and evaluation APIs;
-the POC console does not include their record browsers. Existing stored records
-remain available through the API. Research reset creates a fresh episode and
-capsule while retaining previous records.
-
-Real-model acceptance, broader benchmarks, verified checkpoint loading, clean image
-build validation, and a production Firecracker/KVM runner remain outstanding.
-Training runs externally: researchers supply models, credentials, hardware, and
-training/restoration code. Fixture success does not establish model performance.
-
-| Directory | Contents |
-|---|---|
-| `backend/src/` | API, workers, Red/Blue, storage, verifiers, reference agent, and target protocol |
-| `backend/migrations/` | Database migrations |
-| `ui/` | Web console, API proxy, and reusable components |
+[Run locally](#run-locally) · [Architecture design](#architecture-design)
 
 ## Run locally
 
-Requires Docker with Compose v2, Python 3.12+, `uv`, `make`, Node 22.13+ with npm,
-and network access for initial installs/builds. Start from the repository root:
+Requires Docker running with Compose v2, Python 3.12+, `uv`, `make`, and Node
+22.13+ with npm. From the repository root, run:
 
 ```bash
+# Install dependencies and create backend/.env if it does not exist.
 make setup
 cd backend
-# Review .env; on Linux, set DOCKER_GID to the Docker socket's group.
+
+# Give the supervisor access to the Docker socket on Linux.
+if [ "$(uname -s)" = "Linux" ]; then
+  export DOCKER_GID="$(stat -c '%g' /var/run/docker.sock)"
+fi
+
+# Build and start all services, including database migrations.
 docker compose up -d --build --wait
+
+# Build and register the finance reference target.
 uv run adversarial-bundle build-reference --output var/bundles/finance-reference.json
 docker compose cp var/bundles/finance-reference.json api:/tmp/reference.json
 docker compose exec -T api python -m adversarial_agent_mvp.bundle_cli register /tmp/reference.json
 ```
 
-Open the **UI at http://localhost:3000** or **API docs at http://localhost:8000/docs**.
-These are default ports; `.env` can override them. On Linux, find the Docker socket
-group with `stat -c '%g' /var/run/docker.sock`.
-The full stack also includes MinIO and MLflow. Reference registration makes the
-fixture discoverable; it does not run an experiment or configure a real model.
+Open **[localhost:3000](http://localhost:3000)**, select the registered target,
+and create an attack campaign. Inspect its experiments, trajectories, and verified
+findings in the console. The UI and API run as one shared Admin, with full access
+and no login or user access token. API clients can call the backend directly
+without an authorization header. The default target uses a scripted fixture and
+needs no model credentials. Configure ports in `backend/.env`.
 
-Use only one active capsule supervisor per Docker endpoint. Stop from `backend/`
-with `docker compose down`; adding `-v` deletes stored data.
-The default local stack disables research authentication; enable
-`RESEARCH_AUTH_REQUIRED` and configure `RESEARCH_AUTH_TOKENS` for authenticated access.
-Review the [architecture guide](architecture-guide.html) before remote use.
+API docs are at [localhost:8000/docs](http://localhost:8000/docs), MLflow at
+[localhost:5000](http://localhost:5000), and MinIO at
+[localhost:9001](http://localhost:9001).
 
-## API access
+From `backend/`, use `docker compose logs -f api worker capsule-supervisor` to
+follow logs and `docker compose down` to stop services while keeping stored data.
 
-Use the web console for the POC workflow. External clients can call the backend
-HTTP API directly; its interactive documentation is available at
-**http://localhost:8000/docs** after local setup. Adjust the address if your API
-runs on a different host or port.
+## Architecture design
 
-### Authentication
+AML runs controlled attacks against isolated target agents. **Red** chooses attack
+actions, **Blue** mediates simulated business effects, and trusted verifiers
+record outcomes.
 
-An access token is a secret string that identifies your client and its permissions.
-For authenticated HTTP requests, send `Authorization: Bearer <token>`. Use a token
-configured by your deployment's operator; an arbitrary token is rejected even when
-local authentication is disabled.
-For a local authenticated setup, generate a token and its configuration with:
+```mermaid
+flowchart TD
+    UI[Web console and API proxy] --> API[FastAPI control API]
+    Client[External API clients] --> API
+    API --> DB[(PostgreSQL: records and durable queue)]
+    DB -->|Leased jobs| Worker[Worker and managed Red]
+    Worker --> Supervisor[Capsule supervisor]
 
-```bash
-python3 - <<'PYTHON'
-import hashlib
-import json
-import secrets
+    subgraph Capsule[Per-episode capsule]
+        Target[Target agent]
+        Blue[Blue gateway and verifiers]
+        Target -->|Tool calls and virtual effects| Blue
+    end
 
-token = secrets.token_urlsafe(32)
-digest = hashlib.sha256(token.encode()).hexdigest()
-identity = {"owner_id": "local-researcher", "scopes": ["research", "evaluation", "evidence", "operator"]}
-print("Client token:", token)
-print("RESEARCH_AUTH_REQUIRED=true")
-print("RESEARCH_AUTH_TOKENS=" + json.dumps({digest: identity}, separators=(",", ":")))
-PYTHON
+    Supervisor -->|Provision and invoke| Target
+    Supervisor -->|Configure and collect trace| Blue
+    Worker -->|Outcomes and lineage| DB
+    Worker --> Artifacts[(MinIO: evidence and artifacts)]
+    Worker --> MLflow[MLflow tracking]
+    API --> Artifacts
 ```
 
-Save the printed client token, then replace the two matching settings in
-`backend/.env` with the printed configuration lines. The mapping stores the hash;
-the client uses the original token. These scopes enable the full local walkthrough.
-Apply changes from `backend/` with `docker compose up -d --force-recreate api`.
-Enter the same original token in the UI connection dialog when using this
-authenticated stack.
+### Components and responsibilities
 
-## Reproduction
+| Component | Responsibility |
+| --- | --- |
+| Web console | Register targets, launch campaigns, and inspect experiments, trajectories, findings, evidence, and strategy memory. |
+| Control API | Validate requests and limits; persist commands and expose research records. |
+| Worker and Red | Lease queued work, select attacks, execute episodes, and persist results. |
+| Capsule supervisor | Manage capsule lifecycle, own Docker access, and broker target model inference. |
+| Target and Blue | Run in separate containers on an internal network. Blue enforces policy and records trusted events for simulated business effects. |
+| Persistence | PostgreSQL stores commands, outcomes, and lineage; MinIO stores artifacts; MLflow tracks runs. |
+| Supporting services | The target registry preserves images; OpenTelemetry collects service telemetry. |
 
-A finding and a successful fresh replay are separate results; seeds do not guarantee
-identical model responses.
+### Episode lifecycle and isolation
 
-| API | Behavior |
-|---|---|
-| `POST /v1/research-episodes/{id}/reproduce` | Returns 202 with a fresh replay session using the source bundle, policy, seed, and completed actions. Retains source limits with `max_episodes=1`. Requires a finished owned episode, `evaluation` or `operator` scope, and an idempotency key. |
-| `GET /v1/research-sessions/{id}/reproduction` | Read progress, success, and observation divergence. |
-| `POST /v1/findings/{id}/replay` | Operator replay used by the UI. Send `{"reproduction_only": true, "search_nearby_bypasses": false}` to retain original target/task, policy, attacker configuration, and lineage without starting hardening. |
+1. Bind a pinned target image to a scenario, policy, seed, and resource limits.
+2. Provision a fresh capsule and check readiness.
+3. Red submits interventions; the target acts through Blue's controlled tools.
+4. Verify trusted events and save observations, outcomes, usage, and evidence.
+5. Finalize the trajectory and destroy the capsule. Replay uses a fresh execution.
 
-For authenticated requests, send `Authorization: Bearer <token>`. Clients can send
-`X-AML-API-Version: aml.research.v1`; the API defaults to that version if omitted.
-Research reproduction POSTs require an ASCII `Idempotency-Key` of 1–200 characters.
-Setting `search_nearby_bypasses` to `true` requests adaptive mutations; a conflicting
-`policy_version_id` returns 422. Finding replay returns `replay_campaign_id` and its
-execution contract. `reproduction_only` defaults to `false` for compatibility;
-the UI always sends `true`. Deploy matching UI/backend versions and apply migrations
-through `0005`; the replay flag itself requires no migration.
+Target model requests follow **target → Blue mailbox → supervisor broker → model
+provider**. Provider credentials and connectivity stay outside the capsule.
+Internal service tokens and target capability checks still protect communication
+with the supervisor and Blue gateway. Request validation and resource limits
+apply to the shared Admin; conventional user login is deferred beyond the POC.
+The target cannot certify its own success; a recorded finding and a successful
+fresh replay are separate results.
 
-## Development and checks
+<a id="current-implementation"></a>
 
-Automated tests and their supporting setup are maintained on the
-`tests/project-suite` branch.
+The included target is one finance reference agent with scripted `fixture` and
+configurable `model` modes. Docker capsules share the host kernel and serve as
+the development isolation runtime. A production Firecracker/KVM runner is not
+bundled or validated. Training runs externally; fixture outcomes do not establish
+real-model performance.
 
-Prepare every service from the repository root:
-
-```bash
-make setup
-```
-
-This installs the locked backend development dependencies and UI dependencies,
-and creates
-`backend/.env` from the example when it does not already exist.
-
-**API only**, from `backend/` (experiments also need a worker and supervisor):
-
-```bash
-export DEPLOYMENT_ENVIRONMENT=development SERVICE_ROLE=api
-export DATABASE_URL=sqlite:///./adversarial_mvp.db ARTIFACT_BACKEND=local OTEL_ENABLED=false
-uv run alembic upgrade head
-uv run uvicorn adversarial_agent_mvp.api:create_app --factory --reload
-```
-
-These overrides avoid Compose-only database hostnames. Existing authentication still
-applies; use PostgreSQL for deployed execution. A host worker uses matching persistence
-and `CAPSULE_SUPERVISOR_URL`/`CAPSULE_SUPERVISOR_TOKEN` settings:
-`SERVICE_ROLE=worker uv run adversarial-worker`.
-
-**UI**, from `ui/`, with Node 22.13+. Builds also require GNU `timeout` on
-`PATH` (on macOS, install Homebrew `coreutils` and add its `libexec/gnubin` directory):
-
-```bash
-BACKEND_API_URL=http://localhost:8000 npm run dev
-```
-
-Open the printed URL (usually port 5173).
-Enter a research token in the connection dialog; it stays in memory. The same-origin
-proxy forwards only `/healthz`, `/readyz`, and `/v1/*`, filters headers, and rejects
-redirects. Direct API origins require backend `CORS_ORIGINS`. Views use HTTP polling
-and exclude defensive workflows.
-
-**Checks**, from the repository root:
-
-```bash
-(cd backend && uv run ruff check . && uv run pyright && uv build)
-(cd ui && npm run lint && npm run typecheck && npm run build)
-```
-
-`npm run typecheck` generates runtime declarations. From `ui/`, use `npm run build`
-to build and `BACKEND_API_URL=http://localhost:8000 npm run start` to serve it.
-Cached Dockerfiles require matching dependency images and lockfiles.
-
-## References
-
-- [Architecture guide](architecture-guide.html): system design, lifecycle, isolation, persistence, and operational boundaries.
-- [UI product scope](ui/PRODUCT.md): research views and outcome interpretation.
+For the detailed design, see the [architecture guide](architecture-guide.html).

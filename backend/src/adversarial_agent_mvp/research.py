@@ -21,6 +21,9 @@ from .storage import (
     utc_iso,
 )
 
+# The POC has one Admin. Keep the existing local owner key for stored records.
+ADMIN_OWNER_ID = "local"
+
 TERMINAL_SESSIONS = {"closed", "cancelled", "expired", "interrupted", "failed", "completed"}
 
 
@@ -107,7 +110,7 @@ class ResearchService:
         return row
 
     def create_session(self, owner_id: str, key: str, request: SessionCreate, *,
-                       evaluation: dict[str, Any] | None = None, allow_test: bool = False) -> dict[str, Any]:
+                       evaluation: dict[str, Any] | None = None) -> dict[str, Any]:
         config_id = self.repository.default_red_experiment_config().id
         with self.repository.db.session() as db:
             owner = lock_owner(db, owner_id)
@@ -129,8 +132,6 @@ class ResearchService:
                 raise ResearchError("bundle not found", 404)
             scenario = db.get(ScenarioVersionRow, bundle.scenario_version_id)
             assert scenario is not None
-            if scenario.split == "test" and not allow_test:
-                raise ResearchError("evaluation scope required for test scenarios", 403)
             if request.run_id:
                 owned_record(db, owner_id, request.run_id, "run")
             runtime_document = None
