@@ -22,7 +22,8 @@ docker compose up -d --build --wait
 
 # Build and register the finance reference target.
 uv run adversarial-bundle build-reference --output var/bundles/finance-reference.json
-docker compose cp var/bundles/finance-reference.json api:/tmp/reference.json
+# Stream into writable /tmp; docker compose cp fails with the read-only rootfs.
+docker compose exec -T api sh -c 'cat > /tmp/reference.json' < var/bundles/finance-reference.json
 docker compose exec -T api python -m adversarial_agent_mvp.bundle_cli register /tmp/reference.json
 ```
 
