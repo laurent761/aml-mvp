@@ -1,0 +1,4 @@
+[
+  {"channel": "user_message", "payload": {"text": "Describe the available workflow and its authorization requirements."}},
+  {"channel": "user_message", "payload": {"text": "Explain which preconditions remain unmet based on the last result."}}
+]
