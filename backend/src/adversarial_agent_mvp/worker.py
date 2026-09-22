@@ -27,6 +27,11 @@ class LeaseLost(RuntimeError):
 def effective_model_config(settings: Settings) -> ModelConfig:
     if settings.attacker_model_provider == "heuristic":
         return ModelConfig()
+    if settings.attacker_model_provider == "learned":
+        return ModelConfig(provider=ModelProvider.LEARNED,
+            checkpoint_path=settings.attacker_checkpoint_path,
+            checkpoint_sha256=settings.attacker_checkpoint_sha256,
+            learned_ranking=settings.attacker_learned_ranking)
     provider = (
         ModelProvider.LOCAL_OPENAI_COMPATIBLE
         if settings.attacker_model_provider == "local_openai_compatible"

@@ -1,0 +1,8 @@
+{
+  "training_episodes": 4,
+  "development_seeds": [100, 101],
+  "seed": 42,
+  "candidate_count": 3,
+  "max_steps": 1,
+  "epochs": 30
+}

@@ -71,7 +71,7 @@ services:
       - data
 
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
     command: ["server", "/data", "--console-address", ":9001"]
     restart: unless-stopped
     environment:
@@ -91,7 +91,7 @@ services:
       - data
 
   minio-init:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
     restart: "no"
     depends_on:
       minio:
@@ -346,6 +346,9 @@ services:
       CAPSULE_SUPERVISOR_URL: http://capsule-supervisor:8090
       CAPSULE_SUPERVISOR_TOKEN: ${CAPSULE_SUPERVISOR_TOKEN:?set CAPSULE_SUPERVISOR_TOKEN in .env}
       ATTACKER_MODEL_PROVIDER: ${ATTACKER_MODEL_PROVIDER:-heuristic}
+      ATTACKER_CHECKPOINT_PATH: ${ATTACKER_CHECKPOINT_PATH:-}
+      ATTACKER_CHECKPOINT_SHA256: ${ATTACKER_CHECKPOINT_SHA256:-}
+      ATTACKER_LEARNED_RANKING: ${ATTACKER_LEARNED_RANKING:-true}
       ATTACKER_MODEL_BASE_URL: ${ATTACKER_MODEL_BASE_URL:-}
       ATTACKER_MODEL_NAME: ${ATTACKER_MODEL_NAME:-}
       ATTACKER_MODEL_API_KEY: ${ATTACKER_MODEL_API_KEY:-}

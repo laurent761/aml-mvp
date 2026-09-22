@@ -127,6 +127,29 @@ def _trace_graph(
     return effects, unique
 
 
+def record_public_reset(
+    repository: Repository, episode_id: str, task: AttackTask, observation: PublicObservation
+) -> None:
+    """Retain the exact pre-action observation in the existing event store."""
+    from .scenarios import content_hash
+
+    loaded = repository.get_episode(episode_id)
+    if loaded is None:
+        raise ValueError("unknown episode")
+    campaign = repository.get_campaign(loaded[0].campaign_id)
+    assert campaign is not None
+    experiment = (repository.get_red_experiment_config(campaign.red_config_id)
+                  if campaign.red_config_id else None)
+    repository.add_event("episode", episode_id, "EPISODE_PUBLIC_RESET", {
+        "observation": observation.model_dump(mode="json"),
+        "max_steps": task.max_steps_per_episode,
+        "configuration_hash": content_hash({
+            "task": task.model_dump(mode="json"), "campaign": campaign.configuration,
+            "experiment": experiment.content_hash if experiment else None,
+        }),
+    })
+
+
 class RepositoryTrajectorySink(TrajectorySink):
     """Atomically appends a public step and its private causal audit graph."""
 
@@ -301,7 +324,9 @@ class ManagedEpisodeEnvironment:
 
     async def reset(self, task: AttackTask) -> PublicObservation:
         try:
-            return await self.delegate.reset(task)
+            observation = await self.delegate.reset(task)
+            record_public_reset(self.repository, self.episode_id, task, observation)
+            return observation
         except Exception as exc:
             self.failed_error = str(exc)
             raise

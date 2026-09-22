@@ -19,12 +19,16 @@ class FrozenModel(BaseModel):
 
 class ModelProvider(StrEnum):
     HEURISTIC = "heuristic"
+    LEARNED = "learned"
     HOSTED_OPENAI_COMPATIBLE = "hosted_openai_compatible"
     LOCAL_OPENAI_COMPATIBLE = "local_openai_compatible"
 
 
 class ModelConfig(FrozenModel):
     provider: ModelProvider = ModelProvider.HEURISTIC
+    checkpoint_path: str | None = None
+    checkpoint_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    learned_ranking: bool = True
     model: str = Field(default="heuristic-baseline", min_length=1)
     base_url: HttpUrl | None = None
     api_key_env: str | None = None
@@ -41,6 +45,17 @@ class ModelConfig(FrozenModel):
 
     @model_validator(mode="after")
     def validate_endpoint(self) -> ModelConfig:
+        if self.provider == ModelProvider.LEARNED:
+            if not self.checkpoint_path or not self.checkpoint_sha256:
+                raise ValueError("learned provider requires checkpoint_path and checkpoint_sha256")
+            defaults = ModelConfig()
+            if any(getattr(self, name) != getattr(defaults, name)
+                   for name in type(self).model_fields
+                   if name not in {"provider", "checkpoint_path", "checkpoint_sha256", "learned_ranking"}):
+                raise ValueError("learned adapter configuration is stored in its checkpoint")
+            return self
+        if self.checkpoint_path is not None or self.checkpoint_sha256 is not None or not self.learned_ranking:
+            raise ValueError("checkpoint options require the learned provider")
         if self.provider == ModelProvider.HEURISTIC:
             unused_overrides = (
                 self.model != "heuristic-baseline"

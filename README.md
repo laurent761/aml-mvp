@@ -38,6 +38,11 @@ API docs are at [localhost:8000/docs](http://localhost:8000/docs), MLflow at
 [localhost:5000](http://localhost:5000), and MinIO at
 [localhost:9001](http://localhost:9001).
 
+For the CPU learned-attacker training, checkpoint and evaluation loop, see
+[the learned attacker guide](LEARNED_ATTACKER.md).
+See [implementation status and the Docker blocker](LEARNED_ATTACKER_STATUS.md)
+for verified results and the remaining deployment check.
+
 From `backend/`, use `docker compose logs -f api worker capsule-supervisor` to
 follow logs and `docker compose down` to stop services while keeping stored data.
 

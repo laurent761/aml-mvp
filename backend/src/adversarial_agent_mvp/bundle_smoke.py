@@ -76,6 +76,7 @@ async def open_bundle(
     model: ModelClient | None = None,
     inference_settings: Settings | None = None,
     inference_transport: httpx.AsyncBaseTransport | None = None,
+    database_path: Path | None = None,
 ) -> AsyncIterator[BundleSession]:
     if docker and model is not None:
         raise ValueError("local model injection cannot be combined with capsule validation")
@@ -83,7 +84,7 @@ async def open_bundle(
         raise ValueError("model bundles require an operator-configured model")
     async with AsyncExitStack() as stack:
         directory = stack.enter_context(TemporaryDirectory(prefix="aml-bundle-"))
-        db = Database(f"sqlite:///{Path(directory) / 'catalog.db'}")
+        db = Database(f"sqlite:///{database_path or Path(directory) / 'catalog.db'}")
         stack.callback(db.engine.dispose)
         db.create_all()
         repository = Repository(db)

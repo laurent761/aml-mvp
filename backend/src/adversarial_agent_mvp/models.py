@@ -611,6 +611,16 @@ def build_attacker_model(
 
     if config.provider == ModelProvider.HEURISTIC:
         return HeuristicBaselineModel()
+    if config.provider == ModelProvider.LEARNED:
+        from pathlib import Path
+
+        from .learning.checkpoint import load_checkpoint
+        from .learning.model import LearnedAttackerModel
+
+        checkpoint = load_checkpoint(Path(config.checkpoint_path or ""))
+        if checkpoint.identifier != config.checkpoint_sha256:
+            raise ValueError("configured checkpoint identity does not match loaded weights")
+        return LearnedAttackerModel(checkpoint, learned=config.learned_ranking)
     secret_source = secrets if secrets is not None else os.environ
     resolved_api_key = api_key or (
         secret_source.get(config.api_key_env, "") if config.api_key_env else ""

@@ -14,12 +14,12 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 COPY --from=uv /uv /uvx /usr/local/bin/
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
 
 COPY src ./src
 COPY migrations ./migrations
 COPY alembic.ini ./
-RUN uv sync --frozen --no-dev --no-editable \
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-editable \
     && useradd --system --uid 10001 --create-home app \
     && mkdir -p /app/var/artifacts /app/var/uploads \
     && chown -R app:app /app
@@ -40,7 +40,8 @@ FROM runtime AS mlflow
 USER root
 RUN mkdir -p /mlflow && chown app:app /mlflow
 USER app
-RUN uv sync --frozen --no-dev --group mlflow-server --no-editable
+RUN --mount=type=cache,target=/home/app/.cache/uv,uid=10001,gid=10001 \
+    uv sync --frozen --no-dev --group mlflow-server --no-editable
 CMD ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000"]
 
 FROM runtime AS api

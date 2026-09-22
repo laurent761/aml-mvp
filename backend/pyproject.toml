@@ -45,6 +45,7 @@ adversarial-worker = "adversarial_agent_mvp.apps.worker:run"
 adversarial-blue-gateway = "adversarial_agent_mvp.apps.blue_gateway:run"
 adversarial-capsule-supervisor = "adversarial_agent_mvp.apps.capsule_supervisor:run"
 adversarial-bundle = "adversarial_agent_mvp.bundle_cli:main"
+aml = "adversarial_agent_mvp.learning.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/adversarial_agent_mvp", "src/aml_reference_target", "src/aml_target_protocol"]

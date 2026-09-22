@@ -82,11 +82,15 @@ class Settings(BaseSettings):
 
     attacker_model_provider: Literal[
         "heuristic",
+        "learned",
         "hosted_openai_compatible",
         "local_openai_compatible",
         "openai-compatible",
     ] = "heuristic"
     attacker_model_base_url: str | None = None
+    attacker_checkpoint_path: str | None = None
+    attacker_checkpoint_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    attacker_learned_ranking: bool = True
     attacker_model_name: str | None = None
     attacker_model_api_key: str | None = None
     attacker_model_input_cost_per_million: float = Field(default=0, ge=0)
@@ -127,6 +131,8 @@ class Settings(BaseSettings):
         "firecracker_runner_url",
         "firecracker_runner_token",
         "attacker_model_base_url",
+        "attacker_checkpoint_path",
+        "attacker_checkpoint_sha256",
         "attacker_model_name",
         "attacker_model_api_key",
         "target_model_base_url",
@@ -182,7 +188,11 @@ class Settings(BaseSettings):
                     "FIRECRACKER_RUNNER_TOKEN is required when CAPSULE_RUNTIME=firecracker"
                 )
 
-        if self.service_role in {"all", "worker"} and self.attacker_model_provider != "heuristic":
+        if self.attacker_model_provider == "learned" and (
+            not self.attacker_checkpoint_path or not self.attacker_checkpoint_sha256
+        ):
+            raise ValueError("learned attacker requires ATTACKER_CHECKPOINT_PATH and ATTACKER_CHECKPOINT_SHA256")
+        if self.service_role in {"all", "worker"} and self.attacker_model_provider not in {"heuristic", "learned"}:
             missing = [
                 name
                 for name, value in (
