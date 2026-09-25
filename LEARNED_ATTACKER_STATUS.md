@@ -1,6 +1,6 @@
 # Learned attacker — implementation status
 
-Updated: 2026-09-23
+Updated: 2026-09-25
 Branch: `lauren/research-rollout-collector`
 Push destination: `lauren` (`laurent761/aml-mvp`)
 
@@ -62,50 +62,71 @@ and runbook reproduce the experiment.
   temporary attacker runtime containers, and requests a managed evaluation pair.
   It checks clean execution and containment evidence before reporting success.
 
-The driver passed static checks, but its live execution has not been verified.
-The final Dockerfile/cache changes have not completed a successful image build yet.
+## Docker end-to-end verification — passed 2026-09-25
 
-## Current blocker
+The stack rebuilt successfully, migrations completed, and service health checks passed.
+The finance reference target was built and preserved in the local registry. The live
+acceptance driver completed collection → dataset → training → checkpoint registration
+and reload → managed paired evaluation using the scripted finance fixture.
 
-The host ran out of disk space during image extraction. The latest check showed
-approximately **431 MiB free** on the Mac. Build output reported `no space left on
-device` and image extraction I/O errors. Docker subsequently returned `EOF`, including
-for read-only disk-usage and service-status queries.
+| Check | Result |
+| --- | --- |
+| TRAIN collection | Two episodes, seeds 42 and 43; two exported examples |
+| CPU training | Completed inside the deployed API container |
+| Checkpoint | Registered, loaded locally, and served by temporary Docker runtimes |
+| Managed DEVELOPMENT evaluation | One fresh episode per policy, seed 100 |
+| Equal execution budget | One executed target query per policy |
+| Target execution | Both evaluation operations returned `ok`; no infrastructure failures |
+| Containment evidence | Both capsules `VERIFIED`, internal networks, zero violations |
+| Attack success | Fixed ranking 0%; learned ranking 0% |
+| Runtime cleanup | Temporary attacker containers removed by the driver |
 
-**No live Docker campaign → training → managed evaluation run has completed.**
-This is an environment blocker, not a passing deployment result. No existing Docker
-images, volumes or other-project caches were pruned. Cache cleanup approval remains
-pending; the later commit/push request does not authorize that cleanup.
+This verifies deployment integration, not improved attack performance or generalization.
+The backend stack remains running. The UI was tested separately afterward; see
+[UI smoke-test results and follow-ups](UI_TEST_STATUS.md).
 
-## Resume after freeing space
+Persisted identifiers:
 
-1. Free at least 5–10 GB of host disk space. Recover/restart Docker Desktop if necessary
-   and confirm `docker info` succeeds. Do not delete project data volumes.
-2. From `backend/`, rebuild/start the stack:
+- Run: `run_3307ef11bc8f4562b3b1b26c59ba8ad2`
+- TRAIN campaigns: `campaign_1b24309ebb3c4bad85b080b66b185570`,
+  `campaign_28608ff3005044799bd96d8321972d17`
+- Checkpoint: `checkpoint_4a216f975a6648f48b00bc8e5d10b56b`
+- Evaluation: `evaluation_1aaca2ebc29a422ea444e4597912fa75`
+- Dataset hash: `522437c88316186457d297de4e62797390bc889007878b4c9d09100341eb54c5`
+- Checkpoint hash: `615b21b85b2da973d54a5bdc56af9804beeac23c16570e143f11ceeec0e1d9ab`
 
-   ```bash
-   docker compose up -d --build --wait api worker target-registry
-   ```
+Local artifacts (ignored runtime output):
 
-3. Build and preserve the reference target:
+- `backend/var/docker-learning/run-1/report.json`
+- `backend/var/docker-learning/run-1/train.jsonl`
+- `backend/var/docker-learning/run-1/checkpoint.json`
+- `backend/var/bundles/docker-reference.json`
 
-   ```bash
-   uv run adversarial-bundle build-reference --output var/bundles/docker-reference.json
-   ```
+## Disk-space blocker — resolved
 
-4. Run the live acceptance driver with a new output directory:
+The previous attempt failed during image extraction when the host ran out of space.
+On September 25, approved unused Docker build-cache cleanup reported 10.37 GB cleared,
+raising host free space from 7.7 GiB to 17 GiB. Images, containers and data volumes were
+preserved. Docker responded normally and the subsequent build and acceptance run passed.
+After rebuilding and running the test, approximately 6.3 GiB remained free.
 
-   ```bash
-   uv run python scripts/docker_learning_smoke.py \
-     --bundle var/bundles/docker-reference.json --output var/docker-learning/run-1
-   ```
+## Repeat the Docker acceptance run
 
-5. Require a completed report with two collected TRAIN episodes, a registered/reloaded
-   checkpoint, one clean managed DEVELOPMENT trial per policy, equal one-step budgets,
-   and persisted Docker containment evidence. Record the campaign/checkpoint/evaluation
-   IDs and the actual metrics. Fix and document any deployment failures encountered.
+From `backend/`, with Docker available:
 
-After deployment verification, the next scientific experiment is the frozen-development
+```bash
+docker compose up -d --build --wait api worker target-registry
+uv run adversarial-bundle build-reference --output var/bundles/docker-reference.json
+uv run python scripts/docker_learning_smoke.py \
+  --bundle var/bundles/docker-reference.json --output var/docker-learning/run-2
+```
+
+Use a new output directory for every run. The driver preserves the report, dataset,
+and checkpoint and removes its temporary attacker runtime containers.
+
+## Next experiment
+
+The next scientific experiment is the frozen-development
 learning curve at 0/25/50/100/200 TRAIN episodes across seeds 7/42/123, using the same
 candidate pool and attack budget. A flat or negative result remains valid evidence.
 

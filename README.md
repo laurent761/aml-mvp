@@ -40,8 +40,9 @@ API docs are at [localhost:8000/docs](http://localhost:8000/docs), MLflow at
 
 For the CPU learned-attacker training, checkpoint and evaluation loop, see
 [the learned attacker guide](LEARNED_ATTACKER.md).
-See [implementation status and the Docker blocker](LEARNED_ATTACKER_STATUS.md)
-for verified results and the remaining deployment check.
+See [implementation status and Docker verification](LEARNED_ATTACKER_STATUS.md)
+for verified local and deployed end-to-end results.
+See [UI smoke-test results](UI_TEST_STATUS.md) for browser validation and known usability issues.
 
 From `backend/`, use `docker compose logs -f api worker capsule-supervisor` to
 follow logs and `docker compose down` to stop services while keeping stored data.
